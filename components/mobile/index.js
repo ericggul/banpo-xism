@@ -21,8 +21,10 @@ function WheelColumn({
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const [offsetItems, setOffsetItems] = useState(0); // fractional offset in units of items (-0.5..0.5 typical)
   const offsetRef = useRef(0);
+  const positionRef = useRef(initialIndex); // continuous position (float, can exceed bounds)
   const isAnimatingRef = useRef(false);
   const rafRef = useRef(0);
+  const rootFontSizeRef = useRef(16);
 
   // helper: modulo positive
   const mod = useCallback((n, m) => {
@@ -35,14 +37,14 @@ function WheelColumn({
   useLayoutEffect(() => {
     if (typeof window === "undefined") return undefined;
     const updateMeasurement = () => {
+      if (typeof window === "undefined") return;
+      const rootFontSizePx =
+        parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      rootFontSizeRef.current = rootFontSizePx;
       if (centerLaneRef.current) {
-        itemHeightPxRef.current = centerLaneRef.current.offsetHeight;
+        const { height } = centerLaneRef.current.getBoundingClientRect();
+        itemHeightPxRef.current = height || itemHeightRem * rootFontSizePx;
       } else {
-        const rootFontSizePx = parseFloat(
-          typeof window !== "undefined"
-            ? getComputedStyle(document.documentElement).fontSize
-            : 16
-        );
         itemHeightPxRef.current = itemHeightRem * rootFontSizePx;
       }
     };
@@ -60,11 +62,7 @@ function WheelColumn({
       if (measured && measured > 0) {
         return deltaPx / measured;
       }
-      const rootFontSizePx = parseFloat(
-        typeof window !== "undefined"
-          ? getComputedStyle(document.documentElement).fontSize
-          : 16
-      );
+      const rootFontSizePx = rootFontSizeRef.current || 16;
       return deltaPx / (itemHeightRem * rootFontSizePx);
     },
     [itemHeightRem]
@@ -83,118 +81,138 @@ function WheelColumn({
     lastT: 0,
     velocitySamples: [], // [{vItemsPerMs, t}]
   });
+  const wheelIdleTimeoutRef = useRef(null);
 
-  const applyDeltaItems = useCallback(
-    (deltaItems) => {
-      // maintain offset within (-0.5, 0.5] and carry whole steps into selectedIndex
-      setOffsetItems((prev) => {
-        let nextOffset = prev + deltaItems;
-        let carry = 0;
-        while (nextOffset <= -0.5) {
-          nextOffset += 1;
-          carry -= 1;
-        }
-        while (nextOffset > 0.5) {
-          nextOffset -= 1;
-          carry += 1;
-        }
-        if (carry !== 0) {
-          setSelectedIndex((i) => mod(i + carry, len));
-        }
-        offsetRef.current = nextOffset;
-        return nextOffset;
+  const commitPosition = useCallback(
+    (nextPosition) => {
+      if (!len) return;
+      positionRef.current = nextPosition;
+      const nearest = Math.round(nextPosition);
+      let offset = nextPosition - nearest;
+      if (Math.abs(offset) < 0.0001) {
+        offset = 0;
+      }
+      offsetRef.current = offset;
+      setOffsetItems(offset);
+      setSelectedIndex((current) => {
+        const normalized = mod(nearest, len);
+        return current === normalized ? current : normalized;
       });
     },
     [len, mod]
   );
 
+  const applyDeltaItems = useCallback(
+    (deltaItems) => {
+      if (!len) return;
+      const next = positionRef.current + deltaItems;
+      commitPosition(next);
+    },
+    [commitPosition, len]
+  );
+
   const stopAnimation = useCallback(() => {
     isAnimatingRef.current = false;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
   }, []);
 
-  useEffect(() => {
-    const idx = options.findIndex((o) => String(o) === String(value));
-    if (idx < 0) return;
-    setSelectedIndex((current) => (current === idx ? current : idx));
-    if (offsetRef.current !== 0) {
-      stopAnimation();
-      offsetRef.current = 0;
-      setOffsetItems(0);
-    }
-  }, [options, stopAnimation, value]);
+  const easeOutCubic = useCallback((t) => 1 - Math.pow(1 - t, 3), []);
 
-  const snapToCenter = useCallback(() => {
-    const remainder = -offsetRef.current;
-    if (Math.abs(remainder) < 0.0005) {
-      offsetRef.current = 0;
-      setOffsetItems(0);
-      return;
-    }
-    // dynamic duration proportional to distance (unitless as requested)
-    const durationMs = Math.max(60, Math.min(240, Math.abs(remainder) * 280));
-    isAnimatingRef.current = true;
-    const start = performance.now();
-    let lastE = 0;
-    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
-    const tick = () => {
-      if (!isAnimatingRef.current) return;
-      const r = Math.min(1, (performance.now() - start) / durationMs);
-      const e = easeOutCubic(r);
-      const step = e - lastE;
-      lastE = e;
-      applyDeltaItems(remainder * step);
-      if (r < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        isAnimatingRef.current = false;
-        offsetRef.current = 0;
-        setOffsetItems(0);
-      }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  }, [applyDeltaItems]);
-
-  const animateMomentum = useCallback(
-    (initialVelocity) => {
-      stopAnimation();
-      const minVelocity = 0.000015; // items per ms
-      const drag = 0.0018; // exponential decay factor
-      if (Math.abs(initialVelocity) <= minVelocity) {
-        snapToCenter();
+  const animateToPosition = useCallback(
+    (targetPosition, durationMs = 360, easing = easeOutCubic) => {
+      const startPosition = positionRef.current;
+      const distance = targetPosition - startPosition;
+      if (Math.abs(distance) < 0.0001 || durationMs <= 0) {
+        stopAnimation();
+        commitPosition(targetPosition);
         return;
       }
+
+      stopAnimation();
       isAnimatingRef.current = true;
-      let velocity = initialVelocity;
-      let lastTs = performance.now();
-      let elapsed = 0;
-      const maxDuration = 1800;
+      const start = performance.now();
 
       const tick = () => {
         if (!isAnimatingRef.current) return;
         const now = performance.now();
-        const dt = now - lastTs;
-        elapsed += dt;
-        lastTs = now;
-        // decay velocity exponentially to simulate inertia
-        velocity *= Math.exp(-drag * dt);
-        const displacement = velocity * dt;
-        if (Math.abs(displacement) <= 0.000001 || elapsed > maxDuration) {
+        const progress = Math.min(1, (now - start) / durationMs);
+        const eased = easing(progress);
+        const next = startPosition + distance * eased;
+        commitPosition(next);
+        if (progress < 1) {
+          rafRef.current = requestAnimationFrame(tick);
+        } else {
           isAnimatingRef.current = false;
-          snapToCenter();
-          return;
+          commitPosition(targetPosition);
         }
-        applyDeltaItems(displacement);
-        if (Math.abs(velocity) <= minVelocity || elapsed > maxDuration) {
-          isAnimatingRef.current = false;
-          snapToCenter();
-          return;
-        }
-        rafRef.current = requestAnimationFrame(tick);
       };
+
       rafRef.current = requestAnimationFrame(tick);
     },
-    [applyDeltaItems, snapToCenter, stopAnimation]
+    [commitPosition, easeOutCubic, stopAnimation]
+  );
+
+  useEffect(() => {
+    const idx = options.findIndex((o) => String(o) === String(value));
+    if (idx < 0) return;
+    stopAnimation();
+    positionRef.current = idx;
+    offsetRef.current = 0;
+    commitPosition(idx);
+  }, [commitPosition, options, stopAnimation, value]);
+
+  useEffect(() => {
+    positionRef.current = initialIndex;
+    offsetRef.current = 0;
+    commitPosition(initialIndex);
+  }, [commitPosition, initialIndex]);
+
+  const snapToCenter = useCallback(() => {
+    if (!len) return;
+    const target = Math.round(positionRef.current);
+    const distance = Math.abs(target - positionRef.current);
+    if (distance < 0.0001) {
+      commitPosition(target);
+      return;
+    }
+    const durationMs = Math.min(320, Math.max(100, distance * 520));
+    animateToPosition(target, durationMs);
+  }, [animateToPosition, commitPosition, len]);
+
+  const animateMomentum = useCallback(
+    (initialVelocity) => {
+      if (!len) {
+        snapToCenter();
+        return;
+      }
+      const minVelocity = 0.00002; // items per ms
+      if (Math.abs(initialVelocity) <= minVelocity) {
+        snapToCenter();
+        return;
+      }
+      const deceleration = 0.0026; // items per ms^2
+      const direction = initialVelocity > 0 ? 1 : -1;
+      const predictedTravel = (initialVelocity * initialVelocity) / (2 * deceleration);
+      const maxTravelItems = Math.max(12, len * 1.5);
+      const travel = Math.min(predictedTravel, maxTravelItems);
+      let target = positionRef.current + direction * travel;
+      if (!Number.isFinite(target)) {
+        snapToCenter();
+        return;
+      }
+      let rounded = Math.round(target);
+      const currentRounded = Math.round(positionRef.current);
+      if (rounded === currentRounded) {
+        rounded += direction;
+      }
+      const distance = Math.abs(rounded - positionRef.current);
+      const duration = Math.min(1300, Math.max(260, distance * 520));
+      animateToPosition(rounded, duration, easeOutCubic);
+    },
+    [animateToPosition, easeOutCubic, len, snapToCenter]
   );
 
   const onPointerDown = useCallback((e) => {
@@ -256,6 +274,9 @@ function WheelColumn({
       Math.min(maxBoostVelocity, v * 1.05)
     );
     animateMomentum(boostedVelocity);
+    pointer.current.velocitySamples = [];
+    pointer.current.lastY = 0;
+    pointer.current.lastT = 0;
   }, [animateMomentum, snapToCenter]);
 
   useEffect(() => {
@@ -264,8 +285,40 @@ function WheelColumn({
     };
   }, [stopAnimation]);
 
+  useEffect(() => {
+    return () => {
+      if (wheelIdleTimeoutRef.current) {
+        clearTimeout(wheelIdleTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const onWheel = useCallback(
+    (e) => {
+      if (typeof window === "undefined") return;
+      e.preventDefault();
+      stopAnimation();
+      const deltaItems = pxToItems(e.deltaY);
+      if (deltaItems === 0) return;
+      applyDeltaItems(deltaItems);
+      if (wheelIdleTimeoutRef.current) {
+        clearTimeout(wheelIdleTimeoutRef.current);
+      }
+      wheelIdleTimeoutRef.current = setTimeout(() => {
+        wheelIdleTimeoutRef.current = null;
+        snapToCenter();
+      }, 80);
+    },
+    [applyDeltaItems, pxToItems, snapToCenter, stopAnimation]
+  );
+
   const renderItems = () => {
+    if (!len) return null;
     const items = [];
+    const rootFontSizePx = rootFontSizeRef.current || 16;
+    const itemHeightPx =
+      itemHeightPxRef.current ||
+      Math.max(itemHeightRem * rootFontSizePx, 1);
     for (let rel = -half; rel <= half; rel++) {
       const idx = mod(selectedIndex + rel, len);
       const val = options[idx];
@@ -273,7 +326,7 @@ function WheelColumn({
       const clamped = Math.min(1, distance / (half + 0.0001));
       const scale = 1 - 0.12 * clamped; // subtle scale diff
       const opacity = 1 - 0.7 * clamped; // fade towards edges
-      const y = (rel + offsetItems) * itemHeightRem;
+      const translateYPx = (rel + offsetItems) * itemHeightPx;
       const isCenter = distance <= 0.001;
       items.push(
         <div
@@ -285,13 +338,15 @@ function WheelColumn({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            transform: `translate3d(0, ${y}rem, 0) scale(${scale})`,
+            transform: `translate3d(0, ${translateYPx}px, 0) scale(${scale})`,
             transformOrigin: "50% 50%",
             height: `${itemHeightRem}rem`,
             opacity,
             willChange: "transform, opacity",
             fontSize: `${fontSizeRem}rem`,
             fontWeight: isCenter ? 600 : 500,
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: `${itemHeightRem}rem`,
           }}
           role="option"
           aria-selected={isCenter}
@@ -318,6 +373,7 @@ function WheelColumn({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onWheel={onWheel}
       role="listbox"
       aria-label={label}
     >
