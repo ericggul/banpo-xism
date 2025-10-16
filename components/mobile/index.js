@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 // iOS-like Wheel Column with inertia and infinite looping
 function WheelColumn({
@@ -29,16 +29,43 @@ function WheelColumn({
     return ((n % m) + m) % m;
   }, []);
 
-  // convert px delta to items delta using rem base
+  const itemHeightPxRef = useRef(0);
+  const centerLaneRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const updateMeasurement = () => {
+      if (centerLaneRef.current) {
+        itemHeightPxRef.current = centerLaneRef.current.offsetHeight;
+      } else {
+        const rootFontSizePx = parseFloat(
+          typeof window !== "undefined"
+            ? getComputedStyle(document.documentElement).fontSize
+            : 16
+        );
+        itemHeightPxRef.current = itemHeightRem * rootFontSizePx;
+      }
+    };
+    updateMeasurement();
+    window.addEventListener("resize", updateMeasurement);
+    return () => {
+      window.removeEventListener("resize", updateMeasurement);
+    };
+  }, [itemHeightRem]);
+
+  // convert px delta to items delta using measured px height
   const pxToItems = useCallback(
     (deltaPx) => {
+      const measured = itemHeightPxRef.current;
+      if (measured && measured > 0) {
+        return deltaPx / measured;
+      }
       const rootFontSizePx = parseFloat(
         typeof window !== "undefined"
           ? getComputedStyle(document.documentElement).fontSize
           : 16
       );
-      const deltaRem = deltaPx / rootFontSizePx;
-      return deltaRem / itemHeightRem;
+      return deltaPx / (itemHeightRem * rootFontSizePx);
     },
     [itemHeightRem]
   );
@@ -86,6 +113,17 @@ function WheelColumn({
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
   }, []);
 
+  useEffect(() => {
+    const idx = options.findIndex((o) => String(o) === String(value));
+    if (idx < 0) return;
+    setSelectedIndex((current) => (current === idx ? current : idx));
+    if (offsetRef.current !== 0) {
+      stopAnimation();
+      offsetRef.current = 0;
+      setOffsetItems(0);
+    }
+  }, [options, stopAnimation, value]);
+
   const snapToCenter = useCallback(() => {
     const remainder = -offsetRef.current;
     if (Math.abs(remainder) < 0.0005) {
@@ -117,32 +155,42 @@ function WheelColumn({
     rafRef.current = requestAnimationFrame(tick);
   }, [applyDeltaItems]);
 
-  const animateByItems = useCallback(
-    (totalItems, durationMs) => {
+  const animateMomentum = useCallback(
+    (initialVelocity) => {
       stopAnimation();
-      if (durationMs <= 0 || totalItems === 0) return;
+      const minVelocity = 0.000015; // items per ms
+      const drag = 0.0018; // exponential decay factor
+      if (Math.abs(initialVelocity) <= minVelocity) {
+        snapToCenter();
+        return;
+      }
       isAnimatingRef.current = true;
-      const startTs = performance.now();
-      let lastProgress = 0;
-      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+      let velocity = initialVelocity;
+      let lastTs = performance.now();
+      let elapsed = 0;
+      const maxDuration = 1800;
 
       const tick = () => {
         if (!isAnimatingRef.current) return;
         const now = performance.now();
-        const elapsed = now - startTs;
-        const raw = Math.min(1, elapsed / durationMs);
-        const eased = easeOutCubic(raw);
-        const deltaProgress = eased - lastProgress;
-        lastProgress = eased;
-        const stepItems = totalItems * deltaProgress;
-        applyDeltaItems(stepItems);
-        if (raw < 1) {
-          rafRef.current = requestAnimationFrame(tick);
-        } else {
+        const dt = now - lastTs;
+        elapsed += dt;
+        lastTs = now;
+        // decay velocity exponentially to simulate inertia
+        velocity *= Math.exp(-drag * dt);
+        const displacement = velocity * dt;
+        if (Math.abs(displacement) <= 0.000001 || elapsed > maxDuration) {
           isAnimatingRef.current = false;
-          // final snap to exact center
           snapToCenter();
+          return;
         }
+        applyDeltaItems(displacement);
+        if (Math.abs(velocity) <= minVelocity || elapsed > maxDuration) {
+          isAnimatingRef.current = false;
+          snapToCenter();
+          return;
+        }
+        rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
     },
@@ -196,21 +244,19 @@ function WheelColumn({
       v = sum / weightSum;
     }
     const absV = Math.abs(v);
-    // inertia model in items/ms: distance = v^2 / (2a), duration = |v|/a
-    // Choose gentle deceleration (dynamic, unit-less), kept small to allow quick flicks
-    const a = 0.0045; // items per ms^2 (no px)
-    if (absV < 0.00005) {
+    const clickThreshold = 0.00004;
+    if (absV < clickThreshold) {
       // slow drag: just snap to center
       snapToCenter();
       return;
     }
-    const duration = absV / a; // ms
-    const travel = (v * v) / (2 * a) * Math.sign(v); // items
-    // cap travel a bit to avoid over-spin, but leave room for very quick flicks
-    const maxTravel = 40; // items
-    const boundedTravel = Math.max(-maxTravel, Math.min(maxTravel, travel));
-    animateByItems(boundedTravel, duration);
-  }, [animateByItems, snapToCenter]);
+    const maxBoostVelocity = 0.0025;
+    const boostedVelocity = Math.max(
+      -maxBoostVelocity,
+      Math.min(maxBoostVelocity, v * 1.05)
+    );
+    animateMomentum(boostedVelocity);
+  }, [animateMomentum, snapToCenter]);
 
   useEffect(() => {
     return () => {
@@ -236,11 +282,12 @@ function WheelColumn({
             position: "absolute",
             left: 0,
             right: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             transform: `translate3d(0, ${y}rem, 0) scale(${scale})`,
             transformOrigin: "50% 50%",
             height: `${itemHeightRem}rem`,
-            lineHeight: `${itemHeightRem}rem`,
-            textAlign: "center",
             opacity,
             willChange: "transform, opacity",
             fontSize: `${fontSizeRem}rem`,
@@ -280,6 +327,8 @@ function WheelColumn({
           left: 0,
           right: 0,
           top: "50%",
+          display: "flex",
+          alignItems: "center",
           transform: "translateY(-50%)",
           height: `${itemHeightRem}rem`,
           pointerEvents: "none",
@@ -289,6 +338,7 @@ function WheelColumn({
           borderBottom: "0.08rem solid rgba(125,125,125,0.35)",
           zIndex: 2,
         }}
+        ref={centerLaneRef}
         aria-hidden
       />
 
@@ -413,5 +463,3 @@ export default function MobileTimer() {
     </div>
   );
 }
-
-
