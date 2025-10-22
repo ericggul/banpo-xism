@@ -1,0 +1,179 @@
+.wheelScope {}
+
+.wheelScope :global([data-rwp-wrapper] ul) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wheelScope :global([data-rwp-wrapper] li) {
+  margin: 0;
+  padding: 0;
+}
+
+.wheelScope :global([data-rwp-wrapper]) {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+  justify-content: space-between;
+  perspective: 2000px;
+  user-select: none;
+  gap: 0.75rem;
+}
+
+.wheelScope :global([data-rwp]) {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  cursor: default;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 20%,
+    black 80%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 20%,
+    black 80%,
+    transparent 100%
+  );
+}
+
+.wheelScope :global([data-rwp-highlight-wrapper]) {
+  position: absolute;
+  overflow: hidden;
+  top: 50%;
+  width: 100%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.wheelScope :global([data-rwp-highlight-list]) {
+  position: absolute;
+  width: 100%;
+}
+
+.wheelScope :global([data-rwp-options]) {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 0;
+  margin: 0 auto;
+  -webkit-font-smoothing: subpixel-antialiased;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.wheelScope :global([data-rwp-option]) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  -webkit-font-smoothing: subpixel-antialiased;
+  will-change: visibility;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.wheelScope :global([data-rwp-option]),
+.wheelScope :global([data-rwp-highlight-item]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ios-timer-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  padding: 3rem 1.5rem;
+  background: radial-gradient(circle at top, #10121b 0%, #05070f 70%, #020208 100%);
+  font-family: "SF Pro Display", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #f8fafc;
+}
+
+.ios-timer-output {
+  font-size: 3.4rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(248, 250, 252, 0.92);
+  text-shadow: 0 18px 40px rgba(2, 6, 23, 0.5);
+}
+
+.ios-timer-card {
+  width: min(100%, 32rem);
+  padding: 2.2rem 1.8rem;
+  border-radius: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 22, 30, 0.78);
+  box-shadow:
+    0 28px 70px rgba(2, 6, 23, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(18px);
+}
+
+.ios-wheel-wrapper {
+  gap: 1.25rem;
+}
+
+.ios-time-column {
+  position: relative;
+  flex: 1 1 0%;
+  min-width: 6.2rem;
+  padding-top: 1.6rem;
+}
+
+.ios-time-column-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.32);
+  pointer-events: none;
+}
+
+.ios-wheel-option {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: rgba(248, 250, 252, 0.32);
+  transition: color 120ms ease-out;
+}
+
+.ios-wheel-highlight-wrapper {
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(
+    145deg,
+    rgba(64, 64, 69, 0.6),
+    rgba(42, 42, 47, 0.55)
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 20px 35px rgba(2, 6, 23, 0.35);
+}
+
+.ios-wheel-highlight-item {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.9);
+}
+
+.ios-wheel-highlight-item + .ios-wheel-highlight-item {
+  color: rgba(248, 250, 252, 0.32);
+}

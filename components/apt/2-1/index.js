@@ -5,8 +5,8 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-const GRID_ROWS = 5;
-const GRID_COLS = 8;
+const GRID_ROWS = 10;
+const GRID_COLS = 10;
 const SPACING_X = 36;
 const SPACING_Z = 28;
 const GROUND_LEVEL = -2;
@@ -65,7 +65,7 @@ function replicateTransforms(transforms, offsets) {
 }
 
 function createBlueprint() {
-  const floorCount = 16;
+  const floorCount = 100;
   const floorHeight = 0.55;
   const podiumHeight = 1.2;
   const groundLevel = GROUND_LEVEL;
