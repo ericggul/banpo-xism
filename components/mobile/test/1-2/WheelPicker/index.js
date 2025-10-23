@@ -1,4 +1,8 @@
+"use client";
+
 import styles from "./style.module.css";
+
+import { useMemo, useState } from "react";
 import { useWheelPicker } from "./useWheelPicker";
 
 const WheelPickerWrapper = ({ className, children }) => (
