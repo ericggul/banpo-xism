@@ -80,101 +80,175 @@ function replicateTransforms(transforms, offsets) {
 function createBlueprint() {
   const floorCount = 70;
   const floorHeight = 0.55;
-  const podiumHeight = 1.2;
+  const podiumHeight = 1.6;
+  const podiumTerraceHeight = 0.7;
   const groundLevel = GROUND_LEVEL;
   const towerHeight = floorCount * floorHeight + 1.1;
   const towerCenterY = groundLevel + podiumHeight + towerHeight / 2;
-  const roofHeight = 0.6;
-  const crownHeight = 1.1;
+  const towerBaseY = groundLevel + podiumHeight;
+  const roofHeight = 0.9;
+  const crownHeight = 1.4;
+  const skyLoungeHeight = 1.3;
+  const spireHeight = 2.6;
 
   const rawParts = [
     {
-      name: 'podium',
+      name: 'podium-base',
       geometry: 'box',
-      args: [18, podiumHeight, 14],
-      material: { color: '#d6dbe4' },
+      args: [32, podiumHeight, 22],
+      material: { color: '#d3d8e0', metalness: 0.08, roughness: 0.55 },
       transform: {
-        position: [-4.8, groundLevel + podiumHeight / 2, 4.2],
+        position: [-4.5, groundLevel + podiumHeight / 2 - 0.08, 4.2],
         rotation: [0, 0, 0],
       },
     },
     {
-      name: 'tower-long',
+      name: 'podium-terrace',
       geometry: 'box',
-      args: [12, towerHeight, 3.4],
-      material: { color: '#ecf0f5' },
+      args: [24, podiumTerraceHeight, 16],
+      material: { color: '#eaeef3', metalness: 0.12, roughness: 0.4 },
       transform: {
-        position: [-6, towerCenterY, 0],
+        position: [-4.5, groundLevel + podiumHeight + podiumTerraceHeight / 2, 4.2],
         rotation: [0, 0, 0],
       },
     },
     {
-      name: 'tower-short',
+      name: 'podium-lobby-glass',
       geometry: 'box',
-      args: [3.4, towerHeight, 12],
-      material: { color: '#e5e9f1' },
+      args: [20, 1.8, 12],
+      material: { color: '#b7c6da', metalness: 0.65, roughness: 0.18, transparent: true, opacity: 0.82 },
       transform: {
-        position: [0, towerCenterY, 6],
+        position: [-4.5, groundLevel + podiumHeight + 1.2, 4.2],
+        rotation: [0, 0, 0],
+      },
+    },
+    {
+      name: 'podium-canopy',
+      geometry: 'box',
+      args: [26, 0.22, 20],
+      material: { color: '#f5f7fb', metalness: 0.22, roughness: 0.32 },
+      transform: {
+        position: [-4.5, groundLevel + podiumHeight + 2.1, 4.2],
+        rotation: [0, 0, 0],
+      },
+    },
+    {
+      name: 'tower-north',
+      geometry: 'box',
+      args: [11.6, towerHeight, 3.2],
+      material: { color: '#f1f4fb', roughness: 0.32, metalness: 0.18 },
+      transform: {
+        position: [-7.2, towerCenterY, -0.2],
+        rotation: [0, 0, 0],
+      },
+    },
+    {
+      name: 'tower-north-glass',
+      geometry: 'box',
+      args: [7.2, towerHeight, 2.2],
+      material: { color: '#c4d4e7', roughness: 0.16, metalness: 0.42 },
+      transform: {
+        position: [-7.2, towerCenterY, -0.2],
+        rotation: [0, 0, 0],
+      },
+    },
+    {
+      name: 'tower-south',
+      geometry: 'box',
+      args: [3.2, towerHeight * 0.98, 11.8],
+      material: { color: '#f2f5fa', roughness: 0.28, metalness: 0.2 },
+      transform: {
+        position: [-0.2, towerCenterY - 0.1, 6.4],
+        rotation: [0, 0, 0],
+      },
+    },
+    {
+      name: 'tower-south-glass',
+      geometry: 'box',
+      args: [2.4, towerHeight * 0.98, 7.4],
+      material: { color: '#c0d0e4', roughness: 0.15, metalness: 0.38 },
+      transform: {
+        position: [-0.2, towerCenterY - 0.1, 6.4],
+        rotation: [0, 0, 0],
+      },
+    },
+    {
+      name: 'tower-core-glow',
+      geometry: 'box',
+      args: [2.6, towerHeight + 1.2, 2.6],
+      material: { color: '#a9bed8', metalness: 0.3, roughness: 0.32, emissive: '#9fb4d1', emissiveIntensity: 0.08 },
+      transform: {
+        position: [-3.4, towerCenterY + 0.2, 1.8],
+        rotation: [0, 0, 0],
+      },
+    },
+    {
+      name: 'sky-atrium',
+      geometry: 'box',
+      args: [10.4, skyLoungeHeight, 7.6],
+      material: { color: '#d9e1eb', roughness: 0.28, metalness: 0.22, emissive: '#dfe6f2', emissiveIntensity: 0.08 },
+      transform: {
+        position: [-4.2, towerBaseY + towerHeight * 0.35, 3.5],
         rotation: [0, 0, 0],
       },
     },
     {
       name: 'sky-bridge',
       geometry: 'box',
-      args: [7, 2.4, 7],
-      material: { color: '#ccd5e1' },
+      args: [8.4, 1.6, 4.4],
+      material: { color: '#cfd8e5', roughness: 0.22, metalness: 0.25 },
       transform: {
-        position: [-2.4, 1.2, 2.4],
+        position: [-2.2, towerBaseY + towerHeight * 0.62, 2.2],
         rotation: [0, 0, 0],
       },
     },
     {
-      name: 'core',
+      name: 'crown-plate',
       geometry: 'box',
-      args: [2, towerHeight + 0.8, 2],
-      material: { color: '#a9bcd3', metalness: 0.2, roughness: 0.35 },
+      args: [12.8, roofHeight, 4],
+      material: { color: '#f6f7fb', roughness: 0.2, metalness: 0.32 },
       transform: {
-        position: [-1.2, towerCenterY, 1.2],
+        position: [-7.2, towerBaseY + towerHeight + roofHeight / 2, -0.2],
         rotation: [0, 0, 0],
       },
     },
     {
-      name: 'roof-long',
+      name: 'crown-plate-south',
       geometry: 'box',
-      args: [12.2, roofHeight, 3.6],
-      material: { color: '#f6f7f9' },
+      args: [3.6, roofHeight, 12.8],
+      material: { color: '#f6f7fb', roughness: 0.2, metalness: 0.32 },
       transform: {
-        position: [-6, towerCenterY + towerHeight / 2 + roofHeight / 2, 0],
+        position: [-0.2, towerBaseY + towerHeight + roofHeight / 2, 6.4],
         rotation: [0, 0, 0],
       },
     },
     {
-      name: 'roof-short',
+      name: 'crown-halo',
       geometry: 'box',
-      args: [3.6, roofHeight, 12.2],
-      material: { color: '#f6f7f9' },
+      args: [9.6, crownHeight, 9.6],
+      material: { color: '#e7edf6', emissive: '#9dbdff', emissiveIntensity: 0.15, roughness: 0.22, metalness: 0.45 },
       transform: {
-        position: [0, towerCenterY + towerHeight / 2 + roofHeight / 2, 6],
+        position: [-3.6, towerBaseY + towerHeight + roofHeight + crownHeight / 2, 3.2],
         rotation: [0, 0, 0],
       },
     },
     {
-      name: 'crown',
+      name: 'crown-spire',
       geometry: 'box',
-      args: [8.5, crownHeight, 8.5],
-      material: { color: '#e3e7ee', emissive: '#bcc7d6', emissiveIntensity: 0.03 },
+      args: [2.2, spireHeight, 2.2],
+      material: { color: '#f1f6ff', emissive: '#aac6ff', emissiveIntensity: 0.25, metalness: 0.5, roughness: 0.2 },
       transform: {
-        position: [-3, towerCenterY + towerHeight / 2 + roofHeight + crownHeight / 2, 3],
+        position: [-3.6, towerBaseY + towerHeight + roofHeight + crownHeight + spireHeight / 2, 3.2],
         rotation: [0, 0, 0],
       },
     },
     {
       name: 'podium-plaza',
       geometry: 'plane',
-      args: [10, 6],
-      material: { color: '#e8ecef' },
+      args: [24, 14],
+      material: { color: '#ebeff4' },
       transform: {
-        position: [-4.8, -1.4, 8],
+        position: [-4.5, -1.4, 8.2],
         rotation: [-Math.PI / 2, 0, 0],
       },
     },
@@ -212,18 +286,21 @@ function createBlueprint() {
 
   const windowTransforms = [];
   const railingTransforms = [];
+  const finTransforms = [];
+  const lightBarTransforms = [];
+  const gardenTransforms = [];
 
-  const columnSpacing = 0.9;
-  const depthSpacing = 0.9;
-  const baseWindowY = groundLevel + podiumHeight + 0.35;
-  const wingXCenter = -6;
-  const wingZCenter = 6;
-  const halfDepth = 1.7;
+  const columnSpacing = 0.82;
+  const depthSpacing = 0.82;
+  const baseWindowY = groundLevel + podiumHeight + 0.45;
+  const wingXCenter = -7.2;
+  const wingZCenter = 6.4;
+  const halfDepth = 1.6;
 
-  const wingXColumns = 12;
+  const wingXColumns = 14;
   const wingXStartX = wingXCenter - ((wingXColumns - 1) * columnSpacing) / 2;
 
-  const wingZColumns = 12;
+  const wingZColumns = 14;
   const wingZStartZ = wingZCenter - ((wingZColumns - 1) * depthSpacing) / 2;
 
   const buildFacade = ({
@@ -246,12 +323,12 @@ function createBlueprint() {
           rotation,
         });
 
-        if (balcony && floor % 2 === 1) {
+        if (balcony && floor % 3 === 1) {
           railingTransforms.push({
             position: [
               px - offsetX,
-              py - 0.18,
-              pz - offsetZ + (rotation[1] === 0 ? 0.28 : 0),
+              py - 0.22,
+              pz - offsetZ + (rotation[1] === 0 ? 0.26 : 0),
             ],
             rotation,
           });
@@ -294,10 +371,105 @@ function createBlueprint() {
     rotation: [0, -Math.PI / 2, 0],
   });
 
+  const finHeight = towerHeight * 0.92;
+  const finCenterY = towerBaseY + finHeight / 2;
+  const finDepthOffset = halfDepth + 0.92;
+
+  for (let column = 0; column < wingXColumns; column += 2) {
+    const px = wingXStartX + column * columnSpacing;
+    finTransforms.push({
+      position: [px - offsetX, finCenterY, finDepthOffset - offsetZ],
+      rotation: [0, 0, 0],
+      scale: [0.18, finHeight, 0.5],
+    });
+    finTransforms.push({
+      position: [px - offsetX, finCenterY, -finDepthOffset - offsetZ],
+      rotation: [0, Math.PI, 0],
+      scale: [0.18, finHeight, 0.5],
+    });
+  }
+
+  const shortTowerFaceOffset = 2.1;
+  for (let column = 0; column < wingZColumns; column += 2) {
+    const pz = wingZStartZ + column * depthSpacing;
+    finTransforms.push({
+      position: [shortTowerFaceOffset - offsetX, finCenterY, pz - offsetZ],
+      rotation: [0, Math.PI / 2, 0],
+      scale: [0.18, finHeight * 0.92, 0.5],
+    });
+    finTransforms.push({
+      position: [-shortTowerFaceOffset - offsetX, finCenterY, pz - offsetZ],
+      rotation: [0, -Math.PI / 2, 0],
+      scale: [0.18, finHeight * 0.92, 0.5],
+    });
+  }
+
+  const lightBarHeight = towerHeight * 1.05;
+  const lightBarCenterY = towerBaseY + lightBarHeight / 2;
+  const lightBarScale = [0.18, lightBarHeight, 0.18];
+  const lightBarPositions = [
+    [-12.4, lightBarCenterY, -1.6, 0],
+    [-12.4, lightBarCenterY, 1.4, 0],
+    [-1.6, lightBarCenterY, 9.2, 0],
+    [1.4, lightBarCenterY, 9.2, 0],
+    [-5.6, towerBaseY + towerHeight * 0.48, 3.2, Math.PI / 2],
+    [-1.6, towerBaseY + towerHeight * 0.74, 3.2, Math.PI / 2],
+  ];
+
+  lightBarPositions.forEach(([px, py, pz, ry]) => {
+    lightBarTransforms.push({
+      position: [px - offsetX, py, pz - offsetZ],
+      rotation: [0, ry, 0],
+      scale: lightBarScale,
+    });
+  });
+
+  const skyGardenFloors = [14, 28, 42, 58];
+  skyGardenFloors.forEach((floor, index) => {
+    const py = towerBaseY + floor * floorHeight;
+    const width = 9 - index * 0.6;
+    const depth = 6 - index * 0.45;
+    const secondaryWidth = 4.8 - index * 0.35;
+    const secondaryDepth = 3.6 - index * 0.28;
+
+    gardenTransforms.push({
+      position: [-4.6 - offsetX, py, 3.2 - offsetZ],
+      rotation: [0, 0, 0],
+      scale: [width, 0.32, depth],
+    });
+
+    gardenTransforms.push({
+      position: [-0.6 - offsetX, py, 7.2 - offsetZ],
+      rotation: [0, Math.PI / 2, 0],
+      scale: [secondaryWidth, 0.28, secondaryDepth],
+    });
+  });
+
+  const podiumGardenY = groundLevel + podiumHeight + podiumTerraceHeight + 0.18;
+  const podiumPlanters = [
+    [-12.4, podiumGardenY, -4.2],
+    [3.8, podiumGardenY, -4],
+    [-12.4, podiumGardenY, 12.6],
+    [3.8, podiumGardenY, 12.8],
+    [-4.2, podiumGardenY, 14.2],
+    [-4.2, podiumGardenY, -7.2],
+  ];
+
+  podiumPlanters.forEach(([px, py, pz]) => {
+    gardenTransforms.push({
+      position: [px - offsetX, py, pz - offsetZ],
+      rotation: [0, 0, 0],
+      scale: [3.6, 0.36, 1.6],
+    });
+  });
+
   return {
     parts,
     windowTransforms,
     railingTransforms,
+    finTransforms,
+    lightBarTransforms,
+    gardenTransforms,
   };
 }
 
@@ -423,7 +595,14 @@ function InstancedPart({ geometry, args, material, transforms }) {
 
 function ApartmentComplex() {
   const blueprint = useMemo(() => createBlueprint(), []);
-  const { parts, windowTransforms: baseWindowTransforms, railingTransforms: baseRailingTransforms } = blueprint;
+  const {
+    parts,
+    windowTransforms: baseWindowTransforms,
+    railingTransforms: baseRailingTransforms,
+    finTransforms: baseFinTransforms,
+    lightBarTransforms: baseLightBarTransforms,
+    gardenTransforms: baseGardenTransforms,
+  } = blueprint;
   const baseOffsets = useMemo(() => createBuildingOffsets(), []);
   const {
     distortion,
@@ -490,8 +669,26 @@ function ApartmentComplex() {
     [baseRailingTransforms, warpedOffsets],
   );
 
+  const finTransforms = useMemo(
+    () => replicateTransforms(baseFinTransforms, warpedOffsets),
+    [baseFinTransforms, warpedOffsets],
+  );
+
+  const lightBarTransforms = useMemo(
+    () => replicateTransforms(baseLightBarTransforms, warpedOffsets),
+    [baseLightBarTransforms, warpedOffsets],
+  );
+
+  const gardenTransforms = useMemo(
+    () => replicateTransforms(baseGardenTransforms, warpedOffsets),
+    [baseGardenTransforms, warpedOffsets],
+  );
+
   const windowsRef = useRef(null);
   const railingsRef = useRef(null);
+  const finsRef = useRef(null);
+  const lightBarsRef = useRef(null);
+  const gardensRef = useRef(null);
 
   useEffect(() => {
     applyInstancedTransforms(windowsRef.current, windowTransforms);
@@ -500,6 +697,21 @@ function ApartmentComplex() {
   useEffect(() => {
     applyInstancedTransforms(railingsRef.current, railingTransforms);
   }, [railingTransforms]);
+
+  useEffect(() => {
+    if (!finsRef.current || finTransforms.length === 0) return;
+    applyInstancedTransforms(finsRef.current, finTransforms);
+  }, [finTransforms]);
+
+  useEffect(() => {
+    if (!lightBarsRef.current || lightBarTransforms.length === 0) return;
+    applyInstancedTransforms(lightBarsRef.current, lightBarTransforms);
+  }, [lightBarTransforms]);
+
+  useEffect(() => {
+    if (!gardensRef.current || gardenTransforms.length === 0) return;
+    applyInstancedTransforms(gardensRef.current, gardenTransforms);
+  }, [gardenTransforms]);
 
   return (
     <group>
@@ -513,19 +725,43 @@ function ApartmentComplex() {
         />
       ))}
       <instancedMesh ref={windowsRef} args={[null, null, windowTransforms.length]}>
-        <boxGeometry args={[0.7, 0.42, 0.08]} />
+        <boxGeometry args={[0.82, 0.48, 0.05]} />
         <meshStandardMaterial
-          color="#7f8ea7"
-          emissive="#1f2a3b"
-          emissiveIntensity={0.07}
-          metalness={0.1}
-          roughness={0.35}
+          color="#9ab4d0"
+          emissive="#1b2f46"
+          emissiveIntensity={0.12}
+          metalness={0.2}
+          roughness={0.26}
         />
       </instancedMesh>
       <instancedMesh ref={railingsRef} args={[null, null, railingTransforms.length]}>
         <boxGeometry args={[0.74, 0.08, 0.32]} />
-        <meshStandardMaterial color="#c9d4de" roughness={0.6} metalness={0.05} />
+        <meshStandardMaterial color="#d5dee7" roughness={0.48} metalness={0.08} />
       </instancedMesh>
+      {finTransforms.length > 0 && (
+        <instancedMesh ref={finsRef} args={[null, null, finTransforms.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#eef2f9" metalness={0.4} roughness={0.25} />
+        </instancedMesh>
+      )}
+      {lightBarTransforms.length > 0 && (
+        <instancedMesh ref={lightBarsRef} args={[null, null, lightBarTransforms.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial
+            color="#e6ecf9"
+            emissive="#89a8ff"
+            emissiveIntensity={0.4}
+            metalness={0.35}
+            roughness={0.18}
+          />
+        </instancedMesh>
+      )}
+      {gardenTransforms.length > 0 && (
+        <instancedMesh ref={gardensRef} args={[null, null, gardenTransforms.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="#6f9f81" roughness={0.8} metalness={0.05} />
+        </instancedMesh>
+      )}
     </group>
   );
 }
@@ -538,9 +774,34 @@ function Landscape() {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_LEVEL - 0.05, 0]}>
         <planeGeometry args={[campusWidth, campusDepth]} />
-        <meshStandardMaterial color="#eef2f5" />
+        <meshStandardMaterial color="#f2f5f8" />
       </mesh>
- 
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_LEVEL - 0.045, 0]}>
+        <planeGeometry args={[campusWidth * 0.72, SPACING_Z * 0.82]} />
+        <meshStandardMaterial color="#d7dde2" />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_LEVEL - 0.04, 0]}>
+        <planeGeometry args={[SPACING_X * 0.82, campusDepth * 0.72]} />
+        <meshStandardMaterial color="#d0d6db" />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_LEVEL - 0.035, SPACING_Z * 0.12]}>
+        <planeGeometry args={[campusWidth * 0.32, SPACING_Z * 0.3]} />
+        <meshStandardMaterial
+          color="#cbe3f6"
+          metalness={0.3}
+          roughness={0.18}
+          transparent
+          opacity={0.86}
+        />
+      </mesh>
+      <mesh position={[0, GROUND_LEVEL + 0.12, 0]}>
+        <boxGeometry args={[10, 0.32, 10]} />
+        <meshStandardMaterial color="#8fae95" roughness={0.65} metalness={0.05} />
+      </mesh>
+      <mesh position={[0, GROUND_LEVEL + 0.18, SPACING_Z * 0.12]}>
+        <boxGeometry args={[campusWidth * 0.36, 0.18, 2.4]} />
+        <meshStandardMaterial color="#f5f6f8" roughness={0.28} metalness={0.22} />
+      </mesh>
     </group>
   );
 }
