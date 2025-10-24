@@ -1,6 +1,8 @@
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, Suspense, useMemo, useCallback } from "react";
 import styled from "styled-components";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/router";
+import { aptStructure } from "@/components/apt";
 
 const Container = styled.div`
   ${({ theme }) => theme.WholeContainer || `
@@ -51,6 +53,85 @@ const MetadataInfo = styled.div`
   }
 `;
 
+const NavigationContainer = styled.div`
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 1000;
+  font-family: 'Inter', sans-serif;
+`;
+
+const NavigationButton = styled.button`
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 999px;
+  border: none;
+  font-size: 1.5rem;
+  cursor: ${({ disabled }) => (disabled ? 'not-allowed' : 'pointer')};
+  background: ${({ disabled }) =>
+    disabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.18)'};
+  color: #fff;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: ${({ disabled }) => (disabled ? 'none' : 'translateY(-2px)')};
+    background: ${({ disabled }) =>
+      disabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.26)'};
+    box-shadow: ${({ disabled }) =>
+      disabled ? 'none' : '0 10px 24px rgba(0, 0, 0, 0.28)'};
+  }
+`;
+
+const NavigationLabel = styled.span`
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.65;
+`;
+
+function resolveAptNavigation(componentPath) {
+  if (!componentPath?.startsWith('components/apt/')) {
+    return null;
+  }
+
+  const segments = componentPath.split('/');
+  if (segments.length < 4) {
+    return null;
+  }
+
+  const generation = segments[2];
+  const iteration = segments[3];
+
+  const iterations = aptStructure[generation];
+  if (!iterations || iterations.length === 0) {
+    return null;
+  }
+
+  const currentIndex = iterations.indexOf(iteration);
+  if (currentIndex === -1) {
+    return null;
+  }
+
+  const prevIteration = currentIndex > 0 ? iterations[currentIndex - 1] : null;
+  const nextIteration = currentIndex < iterations.length - 1 ? iterations[currentIndex + 1] : null;
+
+  return {
+    generation,
+    iteration,
+    prevHref: prevIteration ? `/apt/${generation}/${prevIteration}` : null,
+    nextHref: nextIteration ? `/apt/${generation}/${nextIteration}` : null,
+    prevLabel: prevIteration ? `${generation}/${prevIteration}` : null,
+    nextLabel: nextIteration ? `${generation}/${nextIteration}` : null,
+  };
+}
+
 function LoadingFallback({ metadata }) {
   return (
     <LoadingContainer>
@@ -82,6 +163,20 @@ function ErrorFallback({ metadata, error }) {
 export default function ShibuyaViewer({ componentPath, metadata }) {
   const [error, setError] = useState(null);
   const [showMetadata, setShowMetadata] = useState(false);
+  const router = useRouter();
+
+  const navigation = useMemo(
+    () => resolveAptNavigation(componentPath),
+    [componentPath]
+  );
+
+  const handleNavigate = useCallback(
+    (href) => {
+      if (!href) return;
+      router.push(href);
+    },
+    [router]
+  );
 
   // Create the dynamic component with error handling
   const DynamicComponent = useMemo(() => {
@@ -148,6 +243,31 @@ export default function ShibuyaViewer({ componentPath, metadata }) {
       <Suspense fallback={<LoadingFallback metadata={metadata} />}>
         <DynamicComponent />
       </Suspense>
+      {navigation && (
+        <NavigationContainer>
+          <NavigationButton
+            type="button"
+            onClick={() => handleNavigate(navigation.prevHref)}
+            disabled={!navigation?.prevHref}
+            aria-label="Previous experiment"
+            title={navigation?.prevLabel ? `Previous: ${navigation.prevLabel}` : 'No previous experiment'}
+          >
+            &#8592;
+          </NavigationButton>
+          <NavigationLabel>
+            Gen {navigation.generation} / {navigation.iteration}
+          </NavigationLabel>
+          <NavigationButton
+            type="button"
+            onClick={() => handleNavigate(navigation.nextHref)}
+            disabled={!navigation?.nextHref}
+            aria-label="Next experiment"
+            title={navigation?.nextLabel ? `Next: ${navigation.nextLabel}` : 'No next experiment'}
+          >
+            &#8594;
+          </NavigationButton>
+        </NavigationContainer>
+      )}
     </Container>
   );
-} 
+}
