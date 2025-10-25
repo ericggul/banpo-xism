@@ -1,4 +1,4 @@
-import styled, {css} from 'styled-components';
+import styled from 'styled-components';
 import {FlexCenterStyle} from '@/styles/common';
 
 const CELL_SIZE_VW = 2;
@@ -41,38 +41,24 @@ export const Cell = styled.div`
   width: ${CELL_SIZE_VW}vw;
   height: ${CELL_SIZE_VW}vw;
   border: none;
-  background: transparent;
+  background: ${({$fill}) => ($fill ? 'var(--fill-color, rgba(64, 145, 255, 0.9))' : 'transparent')};
   box-sizing: border-box;
   transition: background 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
-
-  ${({$fill}) =>
-    $fill &&
-    css`
-      background: var(--fill-color, rgba(64, 145, 255, 0.9));
-    `}
-
-  ${({$featureType}) =>
-    $featureType === 'estate' &&
-    css`
-      background: var(--fill-color, rgba(255, 255, 255, 0.96));
-      box-shadow: 0 0.35vw 0.65vw rgba(0, 0, 0, 0.28);
-    `}
-
-  ${({$featureType}) =>
-    $featureType === 'river' &&
-    css`
-      background: var(--fill-color, rgba(64, 145, 255, 0.9));
-      box-shadow: none;
-    `}
 `;
 
-export const EstateLabel = styled.div`
+export const EstateBlock = styled.div`
   ${FlexCenterStyle}
-  pointer-events: none;
+  position: relative;
   z-index: 2;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0b0e18;
   font-size: 0.85vw;
   font-weight: 600;
-  color: #0b0e18;
-  text-shadow: 0 0.15vw 0.35vw rgba(0, 0, 0, 0.35);
   letter-spacing: 0.05em;
+  text-shadow: 0 0.15vw 0.35vw rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0.55vw 1vw rgba(0, 0, 0, 0.3);
+  border-radius: 0.1vw;
+  pointer-events: none;
 `;
