@@ -1,28 +1,29 @@
-.root {
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: row;
-    width: 100%;
-    align-items: stretch;
-    justify-content: space-between;
-    perspective: 2000px;
-    user-select: none;
-    color: inherit;
-  }
-  
-.root :global([data-rwp-wrapper] ul) {
+import styled from "styled-components";
+
+export const WheelPickerRoot = styled.div`
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  align-items: stretch;
+  justify-content: space-between;
+  perspective: 2000px;
+  user-select: none;
+  color: inherit;
+
+  &[data-rwp-wrapper] ul {
     margin: 0;
     padding: 0;
     list-style: none;
   }
-  
-.root :global([data-rwp-wrapper] li) {
+
+  &[data-rwp-wrapper] li {
     margin: 0;
     padding: 0;
   }
-  
-.root :global([data-rwp]) {
+
+  [data-rwp] {
     position: relative;
     overflow: hidden;
     flex: 1;
@@ -34,9 +35,16 @@
       black 80%,
       transparent 100%
     );
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 20%,
+      black 80%,
+      transparent 100%
+    );
   }
-  
-.root :global([data-rwp-highlight-wrapper]) {
+
+  [data-rwp-highlight-wrapper] {
     position: absolute;
     overflow: hidden;
     top: 50%;
@@ -45,13 +53,13 @@
     font-size: 1rem;
     font-weight: 500;
   }
-  
-.root :global([data-rwp-highlight-list]) {
+
+  [data-rwp-highlight-list] {
     position: absolute;
     width: 100%;
   }
-  
-.root :global([data-rwp-options]) {
+
+  [data-rwp-options] {
     position: absolute;
     top: 50%;
     left: 0;
@@ -64,8 +72,8 @@
     backface-visibility: hidden;
     transform-style: preserve-3d;
   }
-  
-.root :global([data-rwp-option]) {
+
+  [data-rwp-option] {
     position: absolute;
     top: 0;
     left: 0;
@@ -74,10 +82,11 @@
     will-change: visibility;
     font-size: 0.875rem;
   }
-  
-.root :global([data-rwp-option]),
-.root :global([data-rwp-highlight-item]) {
+
+  [data-rwp-option],
+  [data-rwp-highlight-item] {
     display: flex;
     align-items: center;
     justify-content: center;
   }
+`;
