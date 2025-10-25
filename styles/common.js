@@ -11,6 +11,12 @@ export const WholeContainer = css`
   top: 0;
   left: 0;
   overflow: hidden;
-  width: ${({ theme }) => theme.windowWidth}px;
-  height: ${({ theme }) => theme.windowHeight}px;
+  width: ${({ theme }) =>
+    `var(--app-width, ${
+      theme?.windowWidth ? `${theme.windowWidth}px` : "100dvw"
+    })`};
+  height: ${({ theme }) =>
+    `var(--app-height, ${
+      theme?.windowHeight ? `${theme.windowHeight}px` : "100dvh"
+    })`};
 `;

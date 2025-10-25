@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { WheelPicker, WheelPickerWrapper } from "./WheelPicker";
 import { CHOSUNG, JUNGSUNG, JONGSUNG, composeHangulSyllable } from "./constant";
 import { Container, Title, WheelSection, WheelInner } from "./styles";
@@ -33,6 +33,17 @@ export default function MobileVariantPicker() {
   const [banpoInitial, setBanpoInitial] = useState("ㅂ");
   const [banpoVowel, setBanpoVowel] = useState("ㅏ");
   const [jaiVariant, setJaiVariant] = useState("자이");
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const { body } = document;
+    const originalOverflow = body.style.overflow;
+    body.style.overflow = "hidden";
+
+    return () => {
+      body.style.overflow = originalOverflow;
+    };
+  }, []);
 
   const baseConsonants = useMemo(
     () => ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"],
@@ -90,7 +101,7 @@ export default function MobileVariantPicker() {
 
   return (
     <Container>
-      <Title>{`${banpoWord} ${jaiVariant}`}</Title>
+
       <WheelPickerWrapper>
         <WheelSection>
           <WheelInner>
@@ -116,6 +127,7 @@ export default function MobileVariantPicker() {
           </WheelInner>
         </WheelSection>
       </WheelPickerWrapper>
+      <Title>{`${banpoWord} ${jaiVariant}`}</Title>
     </Container>
   );
 }
