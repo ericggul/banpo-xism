@@ -3,6 +3,7 @@ import styled from "styled-components";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { aptStructure } from "@/components/apt";
+import { mobileStructure } from "@/components/mobile";
 
 const Container = styled.div`
   ${({ theme }) => theme.WholeContainer || `
@@ -96,12 +97,54 @@ const NavigationLabel = styled.span`
   opacity: 0.65;
 `;
 
-function resolveAptNavigation(componentPath) {
-  if (!componentPath?.startsWith('components/apt/')) {
-    return null;
-  }
+const MobileNavigationContainer = styled.nav`
+  position: fixed;
+  bottom: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.72);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+  font-family: 'Inter', sans-serif;
+`;
 
-  const segments = componentPath.split('/');
+const MobileNavigationButton = styled.button`
+  width: 2.4rem;
+  height: 2.4rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 999px;
+  border: none;
+  font-size: 1.2rem;
+  cursor: ${({ disabled }) => (disabled ? 'not-allowed' : 'pointer')};
+  background: ${({ disabled }) =>
+    disabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.18)'};
+  color: #fff;
+  transition: transform 0.2s ease, background 0.2s ease;
+  padding: 0;
+
+  &:hover {
+    transform: ${({ disabled }) => (disabled ? 'none' : 'translateY(-1px)')};
+    background: ${({ disabled }) =>
+      disabled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.26)'};
+  }
+`;
+
+const MobileNavigationLabel = styled.span`
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  padding: 0 0.4rem;
+`;
+
+function resolveAptNavigation(segments) {
   if (segments.length < 4) {
     return null;
   }
@@ -123,13 +166,59 @@ function resolveAptNavigation(componentPath) {
   const nextIteration = currentIndex < iterations.length - 1 ? iterations[currentIndex + 1] : null;
 
   return {
+    type: 'apt',
     generation,
     iteration,
+    currentLabel: `Gen ${generation} / ${iteration}`,
     prevHref: prevIteration ? `/apt/${generation}/${prevIteration}` : null,
     nextHref: nextIteration ? `/apt/${generation}/${nextIteration}` : null,
     prevLabel: prevIteration ? `${generation}/${prevIteration}` : null,
     nextLabel: nextIteration ? `${generation}/${nextIteration}` : null,
   };
+}
+
+function resolveMobileNavigation(segments) {
+  if (segments.length < 3 || !Array.isArray(mobileStructure) || mobileStructure.length === 0) {
+    return null;
+  }
+
+  const iteration = segments[2];
+  const currentIndex = mobileStructure.indexOf(iteration);
+  if (currentIndex === -1) {
+    return null;
+  }
+
+  const prevVariant = currentIndex > 0 ? mobileStructure[currentIndex - 1] : null;
+  const nextVariant = currentIndex < mobileStructure.length - 1 ? mobileStructure[currentIndex + 1] : null;
+
+  return {
+    type: 'mobile',
+    iteration,
+    currentLabel: `Variant ${iteration}`,
+    prevHref: prevVariant ? `/mobile/${prevVariant}` : null,
+    nextHref: nextVariant ? `/mobile/${nextVariant}` : null,
+    prevLabel: prevVariant ? `Variant ${prevVariant}` : null,
+    nextLabel: nextVariant ? `Variant ${nextVariant}` : null,
+  };
+}
+
+function resolveNavigation(componentPath) {
+  if (!componentPath?.startsWith('components/')) {
+    return null;
+  }
+
+  const segments = componentPath.split('/');
+  const base = segments[1];
+
+  if (base === 'apt') {
+    return resolveAptNavigation(segments);
+  }
+
+  if (base === 'mobile') {
+    return resolveMobileNavigation(segments);
+  }
+
+  return null;
 }
 
 function LoadingFallback({ metadata }) {
@@ -166,7 +255,7 @@ export default function ShibuyaViewer({ componentPath, metadata }) {
   const router = useRouter();
 
   const navigation = useMemo(
-    () => resolveAptNavigation(componentPath),
+    () => resolveNavigation(componentPath),
     [componentPath]
   );
 
@@ -243,7 +332,7 @@ export default function ShibuyaViewer({ componentPath, metadata }) {
       <Suspense fallback={<LoadingFallback metadata={metadata} />}>
         <DynamicComponent />
       </Suspense>
-      {navigation && (
+      {navigation?.type === 'apt' && (
         <NavigationContainer>
           <NavigationButton
             type="button"
@@ -254,9 +343,7 @@ export default function ShibuyaViewer({ componentPath, metadata }) {
           >
             &#8592;
           </NavigationButton>
-          <NavigationLabel>
-            Gen {navigation.generation} / {navigation.iteration}
-          </NavigationLabel>
+          <NavigationLabel>{navigation.currentLabel}</NavigationLabel>
           <NavigationButton
             type="button"
             onClick={() => handleNavigate(navigation.nextHref)}
@@ -267,6 +354,29 @@ export default function ShibuyaViewer({ componentPath, metadata }) {
             &#8594;
           </NavigationButton>
         </NavigationContainer>
+      )}
+      {navigation?.type === 'mobile' && (
+        <MobileNavigationContainer>
+          <MobileNavigationButton
+            type="button"
+            onClick={() => handleNavigate(navigation.prevHref)}
+            disabled={!navigation?.prevHref}
+            aria-label="Previous variant"
+            title={navigation?.prevLabel ? `Previous: ${navigation.prevLabel}` : 'No previous variant'}
+          >
+            &#8592;
+          </MobileNavigationButton>
+          <MobileNavigationLabel>{navigation.currentLabel}</MobileNavigationLabel>
+          <MobileNavigationButton
+            type="button"
+            onClick={() => handleNavigate(navigation.nextHref)}
+            disabled={!navigation?.nextHref}
+            aria-label="Next variant"
+            title={navigation?.nextLabel ? `Next: ${navigation.nextLabel}` : 'No next variant'}
+          >
+            &#8594;
+          </MobileNavigationButton>
+        </MobileNavigationContainer>
       )}
     </Container>
   );

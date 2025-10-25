@@ -100,12 +100,25 @@ const composeHangulSyllable = (initial, vowel, finalConsonant) => {
   return String.fromCharCode(charCode);
 };
 
+const generateHangulOptions = ({
+  initialConsonants,
+  vowel,
+  finalConsonant,
+  suffix,
+}) =>
+  initialConsonants.map((consonant) => {
+    const syllable = composeHangulSyllable(consonant, vowel, finalConsonant);
+    const finalWord = `${syllable}${suffix}`;
+    return { value: finalWord, label: finalWord };
+  });
+
 export default function MobileVariantPicker() {
+  const BANPO_FINAL_CONSONANT = "ㄴ";
   const BANPO_SUFFIX = "포";
 
   const [banpoInitial, setBanpoInitial] = useState("ㅂ");
   const [banpoVowel, setBanpoVowel] = useState("ㅏ");
-  const [banpoFinal, setBanpoFinal] = useState("ㄴ");
+  const [jaiVariant, setJaiVariant] = useState("자이");
 
   const baseConsonants = useMemo(
     () => ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"],
@@ -113,16 +126,15 @@ export default function MobileVariantPicker() {
   );
 
   const baseVowels = useMemo(() => JUNGSUNG.slice(), []);
-  const baseFinals = useMemo(() => JONGSUNG.slice(), []);
 
   const banpoWord = useMemo(
     () =>
       `${composeHangulSyllable(
         banpoInitial,
         banpoVowel,
-        banpoFinal
+        BANPO_FINAL_CONSONANT
       )}${BANPO_SUFFIX}`,
-    [banpoFinal, banpoInitial, banpoVowel]
+    [banpoInitial, banpoVowel]
   );
 
   const banpoInitialOptions = useMemo(
@@ -131,11 +143,11 @@ export default function MobileVariantPicker() {
         const syllable = composeHangulSyllable(
           consonant,
           banpoVowel,
-          banpoFinal
+          BANPO_FINAL_CONSONANT
         );
         return { value: consonant, label: `${syllable}${BANPO_SUFFIX}` };
       }),
-    [BANPO_SUFFIX, baseConsonants, banpoFinal, banpoVowel]
+    [BANPO_FINAL_CONSONANT, BANPO_SUFFIX, baseConsonants, banpoVowel]
   );
 
   const banpoVowelOptions = useMemo(
@@ -144,27 +156,22 @@ export default function MobileVariantPicker() {
         const syllable = composeHangulSyllable(
           banpoInitial,
           vowel,
-          banpoFinal
+          BANPO_FINAL_CONSONANT
         );
         return { value: vowel, label: `${syllable}${BANPO_SUFFIX}` };
       }),
-    [BANPO_SUFFIX, banpoFinal, banpoInitial, baseVowels]
+    [BANPO_FINAL_CONSONANT, BANPO_SUFFIX, banpoInitial, baseVowels]
   );
 
-  const banpoFinalOptions = useMemo(
+  const jaiOptions = useMemo(
     () =>
-      baseFinals.map((finalConsonant) => {
-        const syllable = composeHangulSyllable(
-          banpoInitial,
-          banpoVowel,
-          finalConsonant
-        );
-        return {
-          value: finalConsonant,
-          label: `${syllable}${BANPO_SUFFIX}`,
-        };
+      generateHangulOptions({
+        initialConsonants: baseConsonants,
+        vowel: "ㅏ",
+        finalConsonant: "",
+        suffix: "이",
       }),
-    [BANPO_SUFFIX, banpoInitial, banpoVowel, baseFinals]
+    [baseConsonants]
   );
 
   return (
@@ -186,7 +193,7 @@ export default function MobileVariantPicker() {
           fontSize: "1.5rem",
         }}
       >
-        {banpoWord}
+        {`${banpoWord} ${jaiVariant}`}
       </div>
       <WheelPickerWrapper>
         <div style={{ flex: 1, minWidth: 80 }}>
@@ -211,9 +218,9 @@ export default function MobileVariantPicker() {
         </div>
         <div style={{ flex: 1, minWidth: 80 }}>
           <WheelPicker
-            options={banpoFinalOptions}
-            value={banpoFinal}
-            onValueChange={setBanpoFinal}
+            options={jaiOptions}
+            value={jaiVariant}
+            onValueChange={setJaiVariant}
             infinite
             visibleCount={20}
             optionItemHeight={36}
