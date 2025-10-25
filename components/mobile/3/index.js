@@ -1,104 +1,7 @@
 import { useMemo, useState } from "react";
 import { WheelPicker, WheelPickerWrapper } from "./WheelPicker";
-
-const HANGUL_START = 44032; // "가"
-const CHOSUNG_INTERVAL = 588;
-const JUNGSUNG_INTERVAL = 28;
-
-const CHOSUNG = [
-  "ㄱ",
-  "ㄲ",
-  "ㄴ",
-  "ㄷ",
-  "ㄸ",
-  "ㄹ",
-  "ㅁ",
-  "ㅂ",
-  "ㅃ",
-  "ㅅ",
-  "ㅆ",
-  "ㅇ",
-  "ㅈ",
-  "ㅉ",
-  "ㅊ",
-  "ㅋ",
-  "ㅌ",
-  "ㅍ",
-  "ㅎ",
-];
-
-const JUNGSUNG = [
-  "ㅏ",
-  "ㅐ",
-  "ㅑ",
-  "ㅒ",
-  "ㅓ",
-  "ㅔ",
-  "ㅕ",
-  "ㅖ",
-  "ㅗ",
-  "ㅘ",
-  "ㅙ",
-  "ㅚ",
-  "ㅛ",
-  "ㅜ",
-  "ㅝ",
-  "ㅞ",
-  "ㅟ",
-  "ㅠ",
-  "ㅡ",
-  "ㅢ",
-  "ㅣ",
-];
-
-const JONGSUNG = [
-  "",
-  "ㄱ",
-  "ㄲ",
-  "ㄳ",
-  "ㄴ",
-  "ㄵ",
-  "ㄶ",
-  "ㄷ",
-  "ㄹ",
-  "ㄺ",
-  "ㄻ",
-  "ㄼ",
-  "ㄽ",
-  "ㄾ",
-  "ㄿ",
-  "ㅀ",
-  "ㅁ",
-  "ㅂ",
-  "ㅄ",
-  "ㅅ",
-  "ㅆ",
-  "ㅇ",
-  "ㅈ",
-  "ㅊ",
-  "ㅋ",
-  "ㅌ",
-  "ㅍ",
-  "ㅎ",
-];
-
-const composeHangulSyllable = (initial, vowel, finalConsonant) => {
-  const chosungIndex = CHOSUNG.indexOf(initial);
-  const jungsungIndex = JUNGSUNG.indexOf(vowel);
-  const jongsungIndex = JONGSUNG.indexOf(finalConsonant);
-
-  if (chosungIndex === -1 || jungsungIndex === -1 || jongsungIndex === -1) {
-    throw new Error("Invalid Hangul character combination.");
-  }
-
-  const charCode =
-    HANGUL_START +
-    chosungIndex * CHOSUNG_INTERVAL +
-    jungsungIndex * JUNGSUNG_INTERVAL +
-    jongsungIndex;
-
-  return String.fromCharCode(charCode);
-};
+import { CHOSUNG, JUNGSUNG, JONGSUNG, composeHangulSyllable } from "./constant";
+import { Container, Title, WheelSection, WheelInner } from "./styles";
 
 const generateHangulOptions = ({
   initialConsonants,
@@ -111,6 +14,17 @@ const generateHangulOptions = ({
     const finalWord = `${syllable}${suffix}`;
     return { value: finalWord, label: finalWord };
   });
+
+const HORIZONTAL_WHEEL_CONTAINER_STYLE = {
+  position: "absolute",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: "100%",
+  maxWidth: 400,
+  pointerEvents: "auto",
+  zIndex: 1,
+};
 
 export default function MobileVariantPicker() {
   const BANPO_FINAL_CONSONANT = "ㄴ";
@@ -175,46 +89,11 @@ export default function MobileVariantPicker() {
   );
 
   return (
-    <div
-      style={{
-        width: "100%",
-        maxWidth: 480,
-        margin: "0 auto",
-        padding: "1rem",
-        color: "white",
-      }}
-    >
-      <div
-        style={{
-          textAlign: "center",
-          fontFamily: "Inter, system-ui, sans-serif",
-          marginBottom: "1rem",
-          opacity: 0.9,
-          fontSize: "1.5rem",
-        }}
-      >
-        {`${banpoWord} ${jaiVariant}`}
-      </div>
+    <Container>
+      <Title>{`${banpoWord} ${jaiVariant}`}</Title>
       <WheelPickerWrapper>
-        <div
-          style={{
-            flex: 2,
-            minWidth: 180,
-            position: "relative",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <div
-            style={{
-              position: "relative",
-              width: "100%",
-              maxWidth: 180,
-              display: "flex",
-              justifyContent: "center",
-            }}
-          >
+        <WheelSection>
+          <WheelInner>
             <WheelPicker
               options={banpoInitialOptions}
               value={banpoInitial}
@@ -232,32 +111,11 @@ export default function MobileVariantPicker() {
               visibleCount={20}
               optionItemHeight={36}
               orientation="horizontal"
-              containerStyle={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: "100%",
-                maxWidth: 220,
-                pointerEvents: "auto",
-                zIndex: 1,
-              }}
+              containerStyle={HORIZONTAL_WHEEL_CONTAINER_STYLE}
             />
-          </div>
-        </div>
-        <div style={{ flex: 1, minWidth: 80 }}>
-          <WheelPicker
-            options={jaiOptions}
-            value={jaiVariant}
-            onValueChange={setJaiVariant}
-            infinite
-            visibleCount={20}
-            optionItemHeight={36}
-          />
-        </div>
+          </WheelInner>
+        </WheelSection>
       </WheelPickerWrapper>
-    </div>
+    </Container>
   );
 }
-
-export { WheelPicker, WheelPickerWrapper };
