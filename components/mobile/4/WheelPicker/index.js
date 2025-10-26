@@ -12,6 +12,7 @@ const WheelPicker = ({
   orientation = "vertical",
   containerStyle,
   children,
+  showHighlight = true,
   ...wheelPickerProps
 }) => {
   const {
@@ -54,30 +55,32 @@ const WheelPicker = ({
         ))}
       </ul>
 
-      <div
-        className={classNames?.highlightWrapper}
-        data-rwp-highlight-wrapper
-        data-slot="highlight-wrapper"
-        style={highlightWrapperStyle}
-      >
-        <ul
-          ref={highlightListRef}
-          data-rwp-highlight-list
-          style={highlightListStyle}
+      {showHighlight && (
+        <div
+          className={classNames?.highlightWrapper}
+          data-rwp-highlight-wrapper
+          data-slot="highlight-wrapper"
+          style={highlightWrapperStyle}
         >
-          {highlightItems.map(({ key, label, style }) => (
-            <li
-              key={key}
-              className={classNames?.highlightItem}
-              data-slot="highlight-item"
-              data-rwp-highlight-item
-              style={style}
-            >
-              {label}
-            </li>
-          ))}
-        </ul>
-      </div>
+          <ul
+            ref={highlightListRef}
+            data-rwp-highlight-list
+            style={highlightListStyle}
+          >
+            {highlightItems.map(({ key, label, style }) => (
+              <li
+                key={key}
+                className={classNames?.highlightItem}
+                data-slot="highlight-item"
+                data-rwp-highlight-item
+                style={style}
+              >
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {children}
     </div>
   );

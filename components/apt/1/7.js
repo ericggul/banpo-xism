@@ -86,7 +86,7 @@ function GalleryRibbonSlab() {
       const y = towerBaseY + floor * spacingY - moduleHeight * 0.08;
       transforms.push({
         position: [0, y, 0],
-        scale: [towerWidth * 1.02, slabThickness, towerDepth * 1.02],
+        scale: [towerWidth * 0.5, slabThickness, towerDepth * 1.02],
       });
     }
     return transforms;
@@ -180,12 +180,7 @@ function GalleryRibbonSlab() {
         </instancedMesh>
       )}
 
-      {railTransforms.length > 0 && (
-        <instancedMesh ref={railRef} args={[null, null, railTransforms.length]}>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color={palette.rail} roughness={0.4} metalness={0.06} />
-        </instancedMesh>
-      )}
+   
 
       {pilotisTransforms.length > 0 && (
         <instancedMesh ref={pilotisRef} args={[null, null, pilotisTransforms.length]} receiveShadow>
