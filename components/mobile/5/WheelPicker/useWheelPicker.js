@@ -14,6 +14,20 @@ const normalizeIndex = (scroll, length) => {
   return ((scroll % length) + length) % length;
 };
 
+const toRadians = (deg) => (deg * Math.PI) / 180;
+
+const getPointerClientCoords = (event) => {
+  if (event instanceof MouseEvent) {
+    return { x: event.clientX, y: event.clientY };
+  }
+
+  const touch = event.touches?.[0] ?? event.changedTouches?.[0];
+  return {
+    x: touch?.clientX ?? 0,
+    y: touch?.clientY ?? 0,
+  };
+};
+
 export const useWheelPicker = ({
   defaultValue,
   value: valueProp,
@@ -24,7 +38,23 @@ export const useWheelPicker = ({
   dragSensitivity: dragSensitivityProp = 3,
   scrollSensitivity: scrollSensitivityProp = 5,
   optionItemHeight: optionItemHeightProp = 30,
+  orientation: orientationProp = "vertical",
+  axisAngle: axisAngleProp,
 }) => {
+  const orientation = orientationProp === "horizontal" ? "horizontal" : "vertical";
+  const isVertical = orientation === "vertical";
+  const axisAngle =
+    typeof axisAngleProp === "number" ? axisAngleProp % 360 : null;
+
+  const axisVector = useMemo(() => {
+    if (axisAngle === null) return null;
+    const rad = toRadians(axisAngle);
+    const x = Math.cos(rad);
+    const y = Math.sin(rad);
+    const length = Math.hypot(x, y) || 1;
+    return { x: x / length, y: y / length };
+  }, [axisAngle]);
+
   const [value = optionsProp[0]?.value ?? "", setValue] = useControllableState({
     defaultProp: defaultValue,
     prop: valueProp,
@@ -48,11 +78,11 @@ export const useWheelPicker = ({
     return result;
   }, [infiniteProp, optionsProp, visibleCountProp]);
 
-  const itemHeight = optionItemHeightProp;
-  const halfItemHeight = itemHeight * 0.5;
+  const itemSize = optionItemHeightProp;
+  const halfItemSize = itemSize * 0.5;
   const itemAngle = 360 / visibleCountProp;
-  const radius = itemHeight / Math.tan((itemAngle * Math.PI) / 180);
-  const containerHeight = Math.round(radius * 2 + itemHeight * 0.25);
+  const radius = itemSize / Math.tan((itemAngle * Math.PI) / 180);
+  const containerLength = Math.round(radius * 2 + itemSize * 0.25);
   const quarterCount = visibleCountProp >> 2;
   const baseDeceleration = dragSensitivityProp * 10;
 
@@ -67,14 +97,70 @@ export const useWheelPicker = ({
   const dragControllerRef = useRef(null);
 
   const touchDataRef = useRef({
-    startY: 0,
-    yList: [],
+    startCoord: 0,
+    startRelativeCoord: 0,
+    coordList: [],
     touchScroll: 0,
     isClick: true,
   });
 
+  const projectPointerToAxis = useCallback(
+    (event, { relative } = { relative: false }) => {
+      if (!axisVector) {
+        const isMouse = event instanceof MouseEvent;
+        if (isVertical) {
+          const coord = isMouse
+            ? event.clientY
+            : event.touches?.[0]?.clientY ?? event.changedTouches?.[0]?.clientY ?? 0;
+          if (!relative) return coord;
+          const container = containerRef.current;
+          if (!container) return coord;
+          const rect = container.getBoundingClientRect();
+          return coord - (rect.top + rect.height / 2);
+        }
+        const coord = isMouse
+          ? event.clientX
+          : event.touches?.[0]?.clientX ?? event.changedTouches?.[0]?.clientX ?? 0;
+        if (!relative) return coord;
+        const container = containerRef.current;
+        if (!container) return coord;
+        const rect = container.getBoundingClientRect();
+        return coord - (rect.left + rect.width / 2);
+      }
+
+      const { x, y } = getPointerClientCoords(event);
+
+      if (!relative) {
+        return x * axisVector.x + y * axisVector.y;
+      }
+
+      const container = containerRef.current;
+      if (!container) {
+        return x * axisVector.x + y * axisVector.y;
+      }
+
+      const rect = container.getBoundingClientRect();
+      const originX = rect.left + rect.width / 2;
+      const originY = rect.top + rect.height / 2;
+
+      return (x - originX) * axisVector.x + (y - originY) * axisVector.y;
+    },
+    [axisVector, isVertical]
+  );
+
+  const projectWheelDelta = useCallback(
+    (event) => {
+      if (axisVector) {
+        return event.deltaX * axisVector.x + event.deltaY * axisVector.y;
+      }
+
+      return isVertical ? event.deltaY : event.deltaX;
+    },
+    [axisVector, isVertical]
+  );
+
   const wheelSegmentPositions = useMemo(() => {
-    if (!visibleCountProp) return [];
+    if (!visibleCountProp || axisVector) return [];
 
     let positionAlongWheel = 0;
     const degToRad = Math.PI / 180;
@@ -82,14 +168,14 @@ export const useWheelPicker = ({
 
     for (let i = quarterCount - 1; i >= -quarterCount + 1; --i) {
       const angle = i * itemAngle;
-      const segmentLength = itemHeight * Math.cos(angle * degToRad);
+      const segmentLength = itemSize * Math.cos(angle * degToRad);
       const start = positionAlongWheel;
       positionAlongWheel += segmentLength;
       segmentRanges.push([start, positionAlongWheel]);
     }
 
     return segmentRanges;
-  }, [itemAngle, itemHeight, quarterCount, visibleCountProp]);
+  }, [axisVector, itemAngle, itemSize, quarterCount, visibleCountProp]);
 
   const cancelAnimation = useCallback(() => {
     cancelAnimationFrame(moveIdRef.current);
@@ -105,9 +191,9 @@ export const useWheelPicker = ({
         : rawScroll;
 
       if (wheelItemsRef.current) {
-        const transform = `translateZ(${-radius}px) rotateX(${
-          itemAngle * normalizedScroll
-        }deg)`;
+        const transform = `translateZ(${-radius}px) rotate${
+          isVertical ? "X" : "Y"
+        }(${itemAngle * normalizedScroll}deg)`;
         wheelItemsRef.current.style.transform = transform;
 
         wheelItemsRef.current.childNodes.forEach((node) => {
@@ -122,14 +208,15 @@ export const useWheelPicker = ({
       }
 
       if (highlightListRef.current) {
-        highlightListRef.current.style.transform = `translateY(${
-          -normalizedScroll * itemHeight
-        }px)`;
+        const translateAxis = isVertical ? "Y" : "X";
+        highlightListRef.current.style.transform = `translate${translateAxis}(${(
+          -normalizedScroll * itemSize
+        ).toFixed(3)}px)`;
       }
 
       return normalizedScroll;
     },
-    [infiniteProp, itemAngle, itemHeight, options.length, quarterCount, radius]
+    [infiniteProp, isVertical, itemAngle, itemSize, options.length, quarterCount, radius]
   );
 
   const animateScroll = useCallback(
@@ -231,54 +318,60 @@ export const useWheelPicker = ({
   );
 
   const handleWheelItemClick = useCallback(
-    (clientY) => {
+    (clientCoord, relativeCoord = 0) => {
+      if (axisVector) {
+        if (Math.abs(relativeCoord) < itemSize * 0.3) return;
+        const direction = relativeCoord > 0 ? 1 : -1;
+        scrollByStep(direction);
+        return;
+      }
+
       const container = containerRef.current;
       if (!container) {
         console.error("Container reference is not set.");
         return;
       }
 
-      const { top } = container.getBoundingClientRect();
-      const clickOffsetY = clientY - top;
+      const rect = container.getBoundingClientRect();
+      const clickOffset = isVertical
+        ? clientCoord - rect.top
+        : clientCoord - rect.left;
 
       const clickedSegmentIndex = wheelSegmentPositions.findIndex(
-        ([start, end]) => clickOffsetY >= start && clickOffsetY <= end
+        ([start, end]) => clickOffset >= start && clickOffset <= end
       );
 
       if (clickedSegmentIndex === -1) {
-        console.error("No item found for click position:", clickOffsetY);
+        console.error("No item found for click position:", clickOffset);
         return;
       }
 
       const stepsToScroll = (quarterCount - clickedSegmentIndex - 1) * -1;
       scrollByStep(stepsToScroll);
     },
-    [quarterCount, scrollByStep, wheelSegmentPositions]
+    [axisVector, isVertical, itemSize, quarterCount, scrollByStep, wheelSegmentPositions]
   );
 
   const updateScrollDuringDrag = useCallback(
     (event) => {
       try {
-        const currentY =
-          (event instanceof MouseEvent
-            ? event.clientY
-            : event.touches?.[0]?.clientY) || 0;
+        const currentCoord = projectPointerToAxis(event);
 
         const touchData = touchDataRef.current;
 
         if (touchData.isClick) {
           const dragThreshold = 5;
-          if (Math.abs(currentY - touchData.startY) > dragThreshold) {
+          if (Math.abs(currentCoord - touchData.startCoord) > dragThreshold) {
             touchData.isClick = false;
           }
         }
 
-        touchData.yList.push([currentY, Date.now()]);
-        if (touchData.yList.length > 5) {
-          touchData.yList.shift();
+        touchData.coordList.push([currentCoord, Date.now()]);
+        if (touchData.coordList.length > 5) {
+          touchData.coordList.shift();
         }
 
-        const dragDelta = (touchData.startY - currentY) / itemHeight;
+        const dragDelta = (touchData.startCoord - currentCoord) / itemSize;
         let nextScroll = scrollRef.current + dragDelta;
 
         if (infiniteProp) {
@@ -288,8 +381,7 @@ export const useWheelPicker = ({
           if (nextScroll < 0) {
             nextScroll *= RESISTANCE;
           } else if (nextScroll > maxIndex) {
-            nextScroll =
-              maxIndex + (nextScroll - maxIndex) * RESISTANCE;
+            nextScroll = maxIndex + (nextScroll - maxIndex) * RESISTANCE;
           }
         }
 
@@ -298,7 +390,7 @@ export const useWheelPicker = ({
         console.error("Error in updateScrollDuringDrag:", error);
       }
     },
-    [infiniteProp, itemHeight, options.length, scrollTo]
+    [infiniteProp, itemSize, options.length, projectPointerToAxis, scrollTo]
   );
 
   const handleDragMoveEvent = useCallback(
@@ -312,6 +404,7 @@ export const useWheelPicker = ({
       }
 
       if (event.cancelable) {
+        event.stopPropagation();
         event.preventDefault();
       }
 
@@ -340,14 +433,13 @@ export const useWheelPicker = ({
         );
         document.addEventListener("mousemove", handleDragMoveEvent, passiveOpts);
 
-        const startY =
-          (event instanceof MouseEvent
-            ? event.clientY
-            : event.touches?.[0]?.clientY) || 0;
+        const startCoord = projectPointerToAxis(event);
+        const startRelativeCoord = projectPointerToAxis(event, { relative: true });
 
         const touchData = touchDataRef.current;
-        touchData.startY = startY;
-        touchData.yList = [[startY, Date.now()]];
+        touchData.startCoord = startCoord;
+        touchData.startRelativeCoord = startRelativeCoord;
+        touchData.coordList = [[startCoord, Date.now()]];
         touchData.touchScroll = scrollRef.current;
         touchData.isClick = true;
 
@@ -356,7 +448,7 @@ export const useWheelPicker = ({
         console.error("Error in initiateDragGesture:", error);
       }
     },
-    [cancelAnimation, handleDragMoveEvent]
+    [cancelAnimation, handleDragMoveEvent, projectPointerToAxis]
   );
 
   const handleDragStartEvent = useCallback(
@@ -367,6 +459,7 @@ export const useWheelPicker = ({
         event.target === containerRef.current;
 
       if ((isDragging || isTargetValid) && event.cancelable) {
+        event.stopPropagation();
         event.preventDefault();
         if (options.length) {
           initiateDragGesture(event);
@@ -434,24 +527,26 @@ export const useWheelPicker = ({
       const touchData = touchDataRef.current;
 
       if (touchData.isClick) {
-        handleWheelItemClick(touchData.startY);
+        handleWheelItemClick(
+          touchData.startCoord,
+          touchData.startRelativeCoord
+        );
         return;
       }
 
-      const yList = touchData.yList;
+      const coordList = touchData.coordList;
       let velocity = 0;
 
-      if (yList.length > 1) {
-        const len = yList.length;
-        const [startY, startTime] = yList[len - 2] ?? [0, 0];
-        const [endY, endTime] = yList[len - 1] ?? [0, 0];
+      if (coordList.length > 1) {
+        const len = coordList.length;
+        const [startCoord, startTime] = coordList[len - 2] ?? [0, 0];
+        const [endCoord, endTime] = coordList[len - 1] ?? [0, 0];
 
         const timeDiff = endTime - startTime;
 
         if (timeDiff > 0) {
-          const distance = startY - endY;
-          const velocityPerSecond =
-            ((distance / itemHeight) * 1000) / timeDiff;
+          const distance = startCoord - endCoord;
+          const velocityPerSecond = ((distance / itemSize) * 1000) / timeDiff;
 
           const direction = velocityPerSecond > 0 ? 1 : -1;
           const absVelocity = Math.min(
@@ -469,7 +564,7 @@ export const useWheelPicker = ({
     } finally {
       draggingRef.current = false;
     }
-  }, [decelerateAndAnimateScroll, handleWheelItemClick, itemHeight]);
+  }, [decelerateAndAnimateScroll, handleWheelItemClick, itemSize]);
 
   const handleDragEndEvent = useCallback(
     (event) => {
@@ -481,6 +576,7 @@ export const useWheelPicker = ({
         event.target === containerRef.current
       ) {
         if (event.cancelable) {
+          event.stopPropagation();
           event.preventDefault();
         }
 
@@ -492,18 +588,19 @@ export const useWheelPicker = ({
 
   const scrollByWheel = useCallback(
     (event) => {
+      event.stopPropagation();
       event.preventDefault();
       const now = Date.now();
-      const delta = event.deltaY;
+      const delta = projectWheelDelta(event);
 
       if (Math.sign(lastWheelTimeRef.current - now) === 1) return;
 
       lastWheelTimeRef.current = now + 80;
 
-      const steps = delta / (itemHeight * 3);
+      const steps = delta / (itemSize * 3);
       scrollByStep(steps);
     },
-    [itemHeight, scrollByStep]
+    [itemSize, projectWheelDelta, scrollByStep]
   );
 
   const handleWheelEvent = useCallback(
@@ -516,6 +613,7 @@ export const useWheelPicker = ({
           event.target === containerRef.current) &&
         event.cancelable
       ) {
+        event.stopPropagation();
         event.preventDefault();
         scrollByWheel(event);
       }
@@ -526,15 +624,19 @@ export const useWheelPicker = ({
   const wheelItems = useMemo(() => {
     if (!options.length) return [];
 
+    const rotateAxis = isVertical ? "X" : "Y";
+    const sizeProperty = isVertical ? "height" : "width";
+    const positionProperty = isVertical ? "top" : "left";
+
     const makeItem = (option, index, angle) => ({
       key: index,
       dataIndex: index,
       label: option.label,
       style: {
-        top: -halfItemHeight,
-        height: itemHeight,
-        lineHeight: `${itemHeight}px`,
-        transform: `rotateX(${angle}deg) translateZ(${radius}px)`,
+        [positionProperty]: -halfItemSize,
+        [sizeProperty]: itemSize,
+        ...(isVertical ? { lineHeight: `${itemSize}px` } : { height: "100%" }),
+        transform: `rotate${rotateAxis}(${angle}deg) translateZ(${radius}px)`,
         visibility: "hidden",
       },
     });
@@ -567,10 +669,11 @@ export const useWheelPicker = ({
 
     return items;
   }, [
-    halfItemHeight,
+    halfItemSize,
     infiniteProp,
+    isVertical,
     itemAngle,
-    itemHeight,
+    itemSize,
     options,
     quarterCount,
     radius,
@@ -580,7 +683,9 @@ export const useWheelPicker = ({
     const makeItem = (option, key) => ({
       key,
       label: option.label,
-      style: { height: itemHeight },
+      style: isVertical
+        ? { height: itemSize, lineHeight: `${itemSize}px` }
+        : { width: itemSize, height: "100%" },
     });
 
     const items = options.map((option, index) => makeItem(option, index));
@@ -594,7 +699,7 @@ export const useWheelPicker = ({
     }
 
     return items;
-  }, [infiniteProp, itemHeight, options]);
+  }, [infiniteProp, isVertical, itemSize, options]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -627,6 +732,15 @@ export const useWheelPicker = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, valueProp, options]);
 
+  const containerStyle = isVertical
+    ? { height: containerLength }
+    : { width: containerLength, height: itemSize };
+
+  const highlightListStyle = {
+    top: isVertical && infiniteProp ? -itemSize : undefined,
+    left: !isVertical && infiniteProp ? -itemSize : undefined,
+  };
+
   return {
     refs: {
       containerRef,
@@ -634,13 +748,12 @@ export const useWheelPicker = ({
       highlightListRef,
     },
     measurements: {
-      containerHeight,
-      itemHeight,
+      containerStyle,
+      itemSize,
     },
-    highlightListStyle: {
-      top: infiniteProp ? -itemHeight : undefined,
-    },
+    highlightListStyle,
     wheelItems,
     highlightItems,
+    orientation,
   };
 };

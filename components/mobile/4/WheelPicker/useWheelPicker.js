@@ -14,19 +14,16 @@ const normalizeIndex = (scroll, length) => {
   return ((scroll % length) + length) % length;
 };
 
-const toRadians = (deg) => (deg * Math.PI) / 180;
-
-const getPointerClientCoords = (event) => {
-  if (event instanceof MouseEvent) {
-    return { x: event.clientX, y: event.clientY };
+const getPrimaryCoordinate = (event, orientation) => {
+  const isMouse = event instanceof MouseEvent;
+  if (orientation === "horizontal") {
+    return isMouse ? event.clientX : event.touches?.[0]?.clientX ?? 0;
   }
-
-  const touch = event.touches?.[0] ?? event.changedTouches?.[0];
-  return {
-    x: touch?.clientX ?? 0,
-    y: touch?.clientY ?? 0,
-  };
+  return isMouse ? event.clientY : event.touches?.[0]?.clientY ?? 0;
 };
+
+const getWheelDelta = (event, orientation) =>
+  orientation === "horizontal" ? event.deltaX : event.deltaY;
 
 export const useWheelPicker = ({
   defaultValue,
@@ -39,21 +36,9 @@ export const useWheelPicker = ({
   scrollSensitivity: scrollSensitivityProp = 5,
   optionItemHeight: optionItemHeightProp = 30,
   orientation: orientationProp = "vertical",
-  axisAngle: axisAngleProp,
 }) => {
   const orientation = orientationProp === "horizontal" ? "horizontal" : "vertical";
   const isVertical = orientation === "vertical";
-  const axisAngle =
-    typeof axisAngleProp === "number" ? axisAngleProp % 360 : null;
-
-  const axisVector = useMemo(() => {
-    if (axisAngle === null) return null;
-    const rad = toRadians(axisAngle);
-    const x = Math.cos(rad);
-    const y = Math.sin(rad);
-    const length = Math.hypot(x, y) || 1;
-    return { x: x / length, y: y / length };
-  }, [axisAngle]);
 
   const [value = optionsProp[0]?.value ?? "", setValue] = useControllableState({
     defaultProp: defaultValue,
@@ -98,69 +83,13 @@ export const useWheelPicker = ({
 
   const touchDataRef = useRef({
     startCoord: 0,
-    startRelativeCoord: 0,
     coordList: [],
     touchScroll: 0,
     isClick: true,
   });
 
-  const projectPointerToAxis = useCallback(
-    (event, { relative } = { relative: false }) => {
-      if (!axisVector) {
-        const isMouse = event instanceof MouseEvent;
-        if (isVertical) {
-          const coord = isMouse
-            ? event.clientY
-            : event.touches?.[0]?.clientY ?? event.changedTouches?.[0]?.clientY ?? 0;
-          if (!relative) return coord;
-          const container = containerRef.current;
-          if (!container) return coord;
-          const rect = container.getBoundingClientRect();
-          return coord - (rect.top + rect.height / 2);
-        }
-        const coord = isMouse
-          ? event.clientX
-          : event.touches?.[0]?.clientX ?? event.changedTouches?.[0]?.clientX ?? 0;
-        if (!relative) return coord;
-        const container = containerRef.current;
-        if (!container) return coord;
-        const rect = container.getBoundingClientRect();
-        return coord - (rect.left + rect.width / 2);
-      }
-
-      const { x, y } = getPointerClientCoords(event);
-
-      if (!relative) {
-        return x * axisVector.x + y * axisVector.y;
-      }
-
-      const container = containerRef.current;
-      if (!container) {
-        return x * axisVector.x + y * axisVector.y;
-      }
-
-      const rect = container.getBoundingClientRect();
-      const originX = rect.left + rect.width / 2;
-      const originY = rect.top + rect.height / 2;
-
-      return (x - originX) * axisVector.x + (y - originY) * axisVector.y;
-    },
-    [axisVector, isVertical]
-  );
-
-  const projectWheelDelta = useCallback(
-    (event) => {
-      if (axisVector) {
-        return event.deltaX * axisVector.x + event.deltaY * axisVector.y;
-      }
-
-      return isVertical ? event.deltaY : event.deltaX;
-    },
-    [axisVector, isVertical]
-  );
-
   const wheelSegmentPositions = useMemo(() => {
-    if (!visibleCountProp || axisVector) return [];
+    if (!visibleCountProp) return [];
 
     let positionAlongWheel = 0;
     const degToRad = Math.PI / 180;
@@ -175,7 +104,7 @@ export const useWheelPicker = ({
     }
 
     return segmentRanges;
-  }, [axisVector, itemAngle, itemSize, quarterCount, visibleCountProp]);
+  }, [itemAngle, itemSize, quarterCount, visibleCountProp]);
 
   const cancelAnimation = useCallback(() => {
     cancelAnimationFrame(moveIdRef.current);
@@ -318,14 +247,7 @@ export const useWheelPicker = ({
   );
 
   const handleWheelItemClick = useCallback(
-    (clientCoord, relativeCoord = 0) => {
-      if (axisVector) {
-        if (Math.abs(relativeCoord) < itemSize * 0.3) return;
-        const direction = relativeCoord > 0 ? 1 : -1;
-        scrollByStep(direction);
-        return;
-      }
-
+    (clientCoord) => {
       const container = containerRef.current;
       if (!container) {
         console.error("Container reference is not set.");
@@ -349,13 +271,13 @@ export const useWheelPicker = ({
       const stepsToScroll = (quarterCount - clickedSegmentIndex - 1) * -1;
       scrollByStep(stepsToScroll);
     },
-    [axisVector, isVertical, itemSize, quarterCount, scrollByStep, wheelSegmentPositions]
+    [isVertical, quarterCount, scrollByStep, wheelSegmentPositions]
   );
 
   const updateScrollDuringDrag = useCallback(
     (event) => {
       try {
-        const currentCoord = projectPointerToAxis(event);
+        const currentCoord = getPrimaryCoordinate(event, orientation);
 
         const touchData = touchDataRef.current;
 
@@ -390,7 +312,7 @@ export const useWheelPicker = ({
         console.error("Error in updateScrollDuringDrag:", error);
       }
     },
-    [infiniteProp, itemSize, options.length, projectPointerToAxis, scrollTo]
+    [infiniteProp, itemSize, options.length, orientation, scrollTo]
   );
 
   const handleDragMoveEvent = useCallback(
@@ -433,12 +355,10 @@ export const useWheelPicker = ({
         );
         document.addEventListener("mousemove", handleDragMoveEvent, passiveOpts);
 
-        const startCoord = projectPointerToAxis(event);
-        const startRelativeCoord = projectPointerToAxis(event, { relative: true });
+        const startCoord = getPrimaryCoordinate(event, orientation);
 
         const touchData = touchDataRef.current;
         touchData.startCoord = startCoord;
-        touchData.startRelativeCoord = startRelativeCoord;
         touchData.coordList = [[startCoord, Date.now()]];
         touchData.touchScroll = scrollRef.current;
         touchData.isClick = true;
@@ -448,7 +368,7 @@ export const useWheelPicker = ({
         console.error("Error in initiateDragGesture:", error);
       }
     },
-    [cancelAnimation, handleDragMoveEvent, projectPointerToAxis]
+    [cancelAnimation, handleDragMoveEvent, orientation]
   );
 
   const handleDragStartEvent = useCallback(
@@ -527,10 +447,7 @@ export const useWheelPicker = ({
       const touchData = touchDataRef.current;
 
       if (touchData.isClick) {
-        handleWheelItemClick(
-          touchData.startCoord,
-          touchData.startRelativeCoord
-        );
+        handleWheelItemClick(touchData.startCoord);
         return;
       }
 
@@ -591,7 +508,7 @@ export const useWheelPicker = ({
       event.stopPropagation();
       event.preventDefault();
       const now = Date.now();
-      const delta = projectWheelDelta(event);
+      const delta = getWheelDelta(event, orientation);
 
       if (Math.sign(lastWheelTimeRef.current - now) === 1) return;
 
@@ -600,7 +517,7 @@ export const useWheelPicker = ({
       const steps = delta / (itemSize * 3);
       scrollByStep(steps);
     },
-    [itemSize, projectWheelDelta, scrollByStep]
+    [itemSize, orientation, scrollByStep]
   );
 
   const handleWheelEvent = useCallback(

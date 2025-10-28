@@ -6,9 +6,8 @@ export const WheelPickerRoot = styled.div`
   display: flex;
   flex-direction: row;
   width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
+  align-items: stretch;
+  justify-content: space-between;
   perspective: 2000px;
   user-select: none;
   color: inherit;
@@ -45,6 +44,23 @@ export const WheelPickerRoot = styled.div`
     );
   }
 
+  [data-rwp][data-orientation="horizontal"] {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 20%,
+      black 80%,
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 20%,
+      black 80%,
+      transparent 100%
+    );
+  }
+
   [data-rwp-highlight-wrapper] {
     position: absolute;
     overflow: hidden;
@@ -53,11 +69,32 @@ export const WheelPickerRoot = styled.div`
     transform: translateY(-50%);
     font-size: 1rem;
     font-weight: 500;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  [data-rwp][data-orientation="horizontal"] [data-rwp-highlight-wrapper] {
+    top: 0;
+    left: 50%;
+    width: auto;
+    height: 100%;
+    transform: translateX(-50%);
+    z-index: 1;
+  }
+
+  [data-rwp][data-orientation="vertical"] [data-rwp-highlight-wrapper] {
+    z-index: 3;
   }
 
   [data-rwp-highlight-list] {
     position: absolute;
     width: 100%;
+  }
+
+  [data-rwp][data-orientation="horizontal"] [data-rwp-highlight-list] {
+    width: auto;
+    height: 100%;
+    display: flex;
   }
 
   [data-rwp-options] {
@@ -74,6 +111,13 @@ export const WheelPickerRoot = styled.div`
     transform-style: preserve-3d;
   }
 
+  [data-rwp][data-orientation="horizontal"] [data-rwp-options] {
+    top: 0;
+    left: 50%;
+    width: 0;
+    height: 100%;
+  }
+
   [data-rwp-option] {
     position: absolute;
     top: 0;
@@ -81,7 +125,18 @@ export const WheelPickerRoot = styled.div`
     width: 100%;
     -webkit-font-smoothing: subpixel-antialiased;
     will-change: visibility;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
+  }
+
+  [data-rwp][data-orientation="horizontal"] [data-rwp-option] {
+    width: auto;
+    height: 100%;
+    display: flex;
+  }
+
+  [data-rwp][data-orientation="horizontal"] [data-rwp-highlight-item] {
+    width: auto;
+    height: 100%;
   }
 
   [data-rwp-option],
@@ -89,13 +144,5 @@ export const WheelPickerRoot = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  [data-rwp-highlight-wrapper] {
-    font-size: 0.9rem;
   }
 `;

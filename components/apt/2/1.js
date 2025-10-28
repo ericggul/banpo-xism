@@ -98,7 +98,7 @@ function MinimalTower({ config, palette, position }) {
 function ApartmentComplex() {
   const palette = {
     unit: '#d7d9d5',
-    band: '#d7d9d5',
+    band: '#fff',
   };
 
   const baseConfig = {
