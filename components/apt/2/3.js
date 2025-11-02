@@ -13,6 +13,15 @@ function useInstancedLayout(ref, transforms) {
     if (!mesh || transforms.length === 0) return;
 
     const dummy = new THREE.Object3D();
+    const geometry = mesh.geometry;
+    let baseBoundingBox = geometry.boundingBox;
+    if (!baseBoundingBox) {
+      geometry.computeBoundingBox();
+      baseBoundingBox = geometry.boundingBox;
+    }
+    const aggregatedBounds = baseBoundingBox ? new THREE.Box3().makeEmpty() : null;
+    const tempBox = baseBoundingBox ? baseBoundingBox.clone() : null;
+
     transforms.forEach((transform, index) => {
       const { position = [0, 0, 0], rotation = [0, 0, 0], scale = [1, 1, 1] } = transform;
       dummy.position.set(position[0], position[1], position[2]);
@@ -20,7 +29,20 @@ function useInstancedLayout(ref, transforms) {
       dummy.scale.set(scale[0], scale[1], scale[2]);
       dummy.updateMatrix();
       mesh.setMatrixAt(index, dummy.matrix);
+
+      if (aggregatedBounds && tempBox) {
+        tempBox.copy(baseBoundingBox);
+        tempBox.applyMatrix4(dummy.matrix);
+        aggregatedBounds.union(tempBox);
+      }
     });
+
+    if (aggregatedBounds && !aggregatedBounds.isEmpty()) {
+      geometry.boundingBox = aggregatedBounds.clone();
+      geometry.boundingSphere = aggregatedBounds.getBoundingSphere(new THREE.Sphere());
+    }
+
+    mesh.frustumCulled = false;
     mesh.instanceMatrix.needsUpdate = true;
   }, [transforms]);
 }
@@ -62,8 +84,8 @@ function MinimalTower({ config, palette, position }) {
 
   const bandTransforms = useMemo(() => {
     const transforms = [];
-    const bandWidth = moduleWidth * 0.32;
-    const bandDepth = towerDepth;
+    const bandWidth = moduleWidth * 0.25;
+    const bandDepth = towerDepth * 0.95;
     for (let column = 0; column < unitsPerRow; column += 1) {
       const x = -towerWidth / 2 + column * spacingX;
       transforms.push({
@@ -98,16 +120,16 @@ function MinimalTower({ config, palette, position }) {
 function ApartmentComplex() {
   const palette = {
     unit: '#d7d9d5',
-    band: '#d7d9d5',
+    band: '#fff',
   };
 
   const baseConfig = {
     floors: 25,
-    unitsPerRow: 4,
-    moduleWidth: 7,
+    unitsPerRow: 3,
+    moduleWidth: 12,
     moduleHeight: 1.05,
-    moduleDepth: 2,
-    spacingX: 7 + 0.22,
+    moduleDepth: 4,
+    spacingX: 12 + 0.22,
     spacingY: 1.05 + 0.18,
     unitInset:2.0 * 0.18,
   };
@@ -168,17 +190,6 @@ function ApartmentComplex() {
         <MinimalTower key={`tower-${index}`} config={config} palette={palette} position={position} />
       ))}
 
-      {towerPlacements.map(({ position }, index) => (
-        <mesh
-          key={`plaza-${index}`}
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={[position[0], GROUND_LEVEL - 0.01, position[2]]}
-        
-        >
-          <planeGeometry args={[plazaWidth, plazaDepth]} />
-          <meshStandardMaterial color="#d6d9d4" />
-        </mesh>
-      ))}
     </group>
   );
 }
@@ -201,7 +212,7 @@ export default function AptComplex00() {
 
         <ApartmentComplex />
 
-        <OrbitControls target={[0, 8, 0]} maxPolarAngle={Math.PI / 2.08} minDistance={60} maxDistance={220} enableDamping />
+        <OrbitControls target={[0, 8, 0]} maxPolarAngle={Math.PI / 2.08} minDistance={12} maxDistance={260} enableDamping />
       </Canvas>
     </div>
   );

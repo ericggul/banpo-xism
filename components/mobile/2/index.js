@@ -1,174 +1,104 @@
 import { useMemo, useState } from "react";
 import { WheelPicker, WheelPickerWrapper } from "./WheelPicker";
 
-const HANGUL_START = 44032; // "가"
-const CHOSUNG_INTERVAL = 588;
-const JUNGSUNG_INTERVAL = 28;
+const ROOT_CLASS = "mobile-variant-picker";
+const NUMBER_LABEL_CLASS = `${ROOT_CLASS}__option-label`;
+const NUMBER_LABEL_CODE_CLASS = `${NUMBER_LABEL_CLASS}-code`;
+const NUMBER_LABEL_TEXT_CLASS = `${NUMBER_LABEL_CLASS}-text`;
 
-const CHOSUNG = [
-  "ㄱ",
-  "ㄲ",
-  "ㄴ",
-  "ㄷ",
-  "ㄸ",
-  "ㄹ",
-  "ㅁ",
-  "ㅂ",
-  "ㅃ",
-  "ㅅ",
-  "ㅆ",
-  "ㅇ",
-  "ㅈ",
-  "ㅉ",
-  "ㅊ",
-  "ㅋ",
-  "ㅌ",
-  "ㅍ",
-  "ㅎ",
-];
+const createOptionLabel = ({ text, code }) => (
+  <span className={NUMBER_LABEL_CLASS}>
+    <span className={NUMBER_LABEL_CODE_CLASS}>{code}</span>
+    <span className={NUMBER_LABEL_TEXT_CLASS}>{text}</span>
+  </span>
+);
 
-const JUNGSUNG = [
-  "ㅏ",
-  "ㅐ",
-  "ㅑ",
-  "ㅒ",
-  "ㅓ",
-  "ㅔ",
-  "ㅕ",
-  "ㅖ",
-  "ㅗ",
-  "ㅘ",
-  "ㅙ",
-  "ㅚ",
-  "ㅛ",
-  "ㅜ",
-  "ㅝ",
-  "ㅞ",
-  "ㅟ",
-  "ㅠ",
-  "ㅡ",
-  "ㅢ",
-  "ㅣ",
-];
+const formatOptionsWithCodes = (options) =>
+  options.map((option, index) => {
+    const code = index.toString().padStart(2, "0");
+    const text = option.text ?? option.value ?? "";
+    return {
+      ...option,
+      text,
+      label: createOptionLabel({ text, code }),
+      code,
+    };
+  });
 
-const JONGSUNG = [
-  "",
-  "ㄱ",
-  "ㄲ",
-  "ㄳ",
-  "ㄴ",
-  "ㄵ",
-  "ㄶ",
-  "ㄷ",
-  "ㄹ",
-  "ㄺ",
-  "ㄻ",
-  "ㄼ",
-  "ㄽ",
-  "ㄾ",
-  "ㄿ",
-  "ㅀ",
-  "ㅁ",
-  "ㅂ",
-  "ㅄ",
-  "ㅅ",
-  "ㅆ",
-  "ㅇ",
-  "ㅈ",
-  "ㅊ",
-  "ㅋ",
-  "ㅌ",
-  "ㅍ",
-  "ㅎ",
-];
+const generateHangulOptions = ({
+  initialConsonants,
+  vowel,
+  finalConsonant,
+  suffix,
+}) => {
+  const HANGUL_START = 44032; // "가"
+  const CHOSUNG_INTERVAL = 588;
+  const JUNGSUNG_INTERVAL = 28;
 
-const composeHangulSyllable = (initial, vowel, finalConsonant) => {
-  const chosungIndex = CHOSUNG.indexOf(initial);
+  const CHOSUNG = [
+    "ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ",
+  ];
+  const JUNGSUNG = [
+    "ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ",
+  ];
+  const JONGSUNG = [
+    "", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ",
+  ];
+
   const jungsungIndex = JUNGSUNG.indexOf(vowel);
   const jongsungIndex = JONGSUNG.indexOf(finalConsonant);
 
-  if (chosungIndex === -1 || jungsungIndex === -1 || jongsungIndex === -1) {
-    throw new Error("Invalid Hangul character combination.");
-  }
-
-  const charCode =
-    HANGUL_START +
-    chosungIndex * CHOSUNG_INTERVAL +
-    jungsungIndex * JUNGSUNG_INTERVAL +
-    jongsungIndex;
-
-  return String.fromCharCode(charCode);
+  return initialConsonants.map((consonant) => {
+    const chosungIndex = CHOSUNG.indexOf(consonant);
+    const charCode =
+      HANGUL_START +
+      chosungIndex * CHOSUNG_INTERVAL +
+      jungsungIndex * JUNGSUNG_INTERVAL +
+      jongsungIndex;
+    const syllable = String.fromCharCode(charCode);
+    const finalWord = `${syllable}${suffix}`;
+    return { value: finalWord, text: finalWord };
+  });
 };
 
 export default function MobileVariantPicker() {
-  const BANPO_SUFFIX = "포";
-
-  const [banpoInitial, setBanpoInitial] = useState("ㅂ");
-  const [banpoVowel, setBanpoVowel] = useState("ㅏ");
-  const [banpoFinal, setBanpoFinal] = useState("ㄴ");
+  const [banpoVariant, setBanpoVariant] = useState("반포");
+  const [jaiVariant, setJaiVariant] = useState("자이");
 
   const baseConsonants = useMemo(
     () => ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"],
     []
   );
 
-  const baseVowels = useMemo(() => JUNGSUNG.slice(), []);
-  const baseFinals = useMemo(() => JONGSUNG.slice(), []);
-
-  const banpoWord = useMemo(
+  const banpoOptions = useMemo(
     () =>
-      `${composeHangulSyllable(
-        banpoInitial,
-        banpoVowel,
-        banpoFinal
-      )}${BANPO_SUFFIX}`,
-    [banpoFinal, banpoInitial, banpoVowel]
+      formatOptionsWithCodes(
+        generateHangulOptions({
+          initialConsonants: baseConsonants,
+          vowel: "ㅏ",
+          finalConsonant: "ㄴ",
+          suffix: "포",
+        })
+      ),
+    [baseConsonants]
   );
 
-  const banpoInitialOptions = useMemo(
+  const jaiOptions = useMemo(
     () =>
-      baseConsonants.map((consonant) => {
-        const syllable = composeHangulSyllable(
-          consonant,
-          banpoVowel,
-          banpoFinal
-        );
-        return { value: consonant, label: `${syllable}${BANPO_SUFFIX}` };
-      }),
-    [BANPO_SUFFIX, baseConsonants, banpoFinal, banpoVowel]
-  );
-
-  const banpoVowelOptions = useMemo(
-    () =>
-      baseVowels.map((vowel) => {
-        const syllable = composeHangulSyllable(
-          banpoInitial,
-          vowel,
-          banpoFinal
-        );
-        return { value: vowel, label: `${syllable}${BANPO_SUFFIX}` };
-      }),
-    [BANPO_SUFFIX, banpoFinal, banpoInitial, baseVowels]
-  );
-
-  const banpoFinalOptions = useMemo(
-    () =>
-      baseFinals.map((finalConsonant) => {
-        const syllable = composeHangulSyllable(
-          banpoInitial,
-          banpoVowel,
-          finalConsonant
-        );
-        return {
-          value: finalConsonant,
-          label: `${syllable}${BANPO_SUFFIX}`,
-        };
-      }),
-    [BANPO_SUFFIX, banpoInitial, banpoVowel, baseFinals]
+      formatOptionsWithCodes(
+        generateHangulOptions({
+          initialConsonants: baseConsonants,
+          vowel: "ㅏ",
+          finalConsonant: "",
+          suffix: "이",
+        })
+      ),
+    [baseConsonants]
   );
 
   return (
     <div
+      className={ROOT_CLASS}
       style={{
         width: "100%",
         maxWidth: 480,
@@ -177,6 +107,31 @@ export default function MobileVariantPicker() {
         color: "white",
       }}
     >
+      <style>{`
+        .${ROOT_CLASS} .${NUMBER_LABEL_CLASS} {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          gap: 0.25rem;
+        }
+
+        .${ROOT_CLASS} .${NUMBER_LABEL_CODE_CLASS} {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-variant-numeric: tabular-nums;
+          min-width: 2ch;
+        }
+
+        .${ROOT_CLASS} [data-slot="highlight-item"] .${NUMBER_LABEL_CODE_CLASS} {
+          display: none;
+        }
+
+        .${ROOT_CLASS} [data-slot="option-item"] .${NUMBER_LABEL_TEXT_CLASS} {
+          display: none;
+        }
+      `}</style>
       <div
         style={{
           textAlign: "center",
@@ -186,14 +141,14 @@ export default function MobileVariantPicker() {
           fontSize: "1.5rem",
         }}
       >
-        {banpoWord}
+        {`${banpoVariant} ${jaiVariant}`}
       </div>
       <WheelPickerWrapper>
         <div style={{ flex: 1, minWidth: 80 }}>
           <WheelPicker
-            options={banpoInitialOptions}
-            value={banpoInitial}
-            onValueChange={setBanpoInitial}
+            options={banpoOptions}
+            value={banpoVariant}
+            onValueChange={setBanpoVariant}
             infinite
             visibleCount={20}
             optionItemHeight={36}
@@ -201,19 +156,9 @@ export default function MobileVariantPicker() {
         </div>
         <div style={{ flex: 1, minWidth: 80 }}>
           <WheelPicker
-            options={banpoVowelOptions}
-            value={banpoVowel}
-            onValueChange={setBanpoVowel}
-            infinite
-            visibleCount={20}
-            optionItemHeight={36}
-          />
-        </div>
-        <div style={{ flex: 1, minWidth: 80 }}>
-          <WheelPicker
-            options={banpoFinalOptions}
-            value={banpoFinal}
-            onValueChange={setBanpoFinal}
+            options={jaiOptions}
+            value={jaiVariant}
+            onValueChange={setJaiVariant}
             infinite
             visibleCount={20}
             optionItemHeight={36}

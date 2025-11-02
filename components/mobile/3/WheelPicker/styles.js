@@ -6,9 +6,8 @@ export const WheelPickerRoot = styled.div`
   display: flex;
   flex-direction: row;
   width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
+  align-items: stretch;
+  justify-content: space-between;
   perspective: 2000px;
   user-select: none;
   color: inherit;
@@ -81,7 +80,7 @@ export const WheelPickerRoot = styled.div`
     width: 100%;
     -webkit-font-smoothing: subpixel-antialiased;
     will-change: visibility;
-    font-size: 0.8rem;
+    font-size: 0.875rem;
   }
 
   [data-rwp-option],
@@ -89,13 +88,5 @@ export const WheelPickerRoot = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  [data-rwp-highlight-wrapper] {
-    font-size: 0.9rem;
   }
 `;

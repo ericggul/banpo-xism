@@ -82,8 +82,6 @@ const JONGSUNG = [
   "ㅎ",
 ];
 
-const NO_FINAL_CONSONANT = "";
-
 const composeHangulSyllable = (initial, vowel, finalConsonant) => {
   const chosungIndex = CHOSUNG.indexOf(initial);
   const jungsungIndex = JUNGSUNG.indexOf(vowel);
@@ -102,16 +100,25 @@ const composeHangulSyllable = (initial, vowel, finalConsonant) => {
   return String.fromCharCode(charCode);
 };
 
+const generateHangulOptions = ({
+  initialConsonants,
+  vowel,
+  finalConsonant,
+  suffix,
+}) =>
+  initialConsonants.map((consonant) => {
+    const syllable = composeHangulSyllable(consonant, vowel, finalConsonant);
+    const finalWord = `${syllable}${suffix}`;
+    return { value: finalWord, label: finalWord };
+  });
+
 export default function MobileVariantPicker() {
-  const [banInitial, setBanInitial] = useState("ㅂ");
-  const [banVowel, setBanVowel] = useState("ㅏ");
-  const [banFinal, setBanFinal] = useState("ㄴ");
-  const [poInitial, setPoInitial] = useState("ㅍ");
-  const [poVowel, setPoVowel] = useState("ㅗ");
-  const [jaInitial, setJaInitial] = useState("ㅈ");
-  const [jaVowel, setJaVowel] = useState("ㅏ");
-  const [iInitial, setIInitial] = useState("ㅇ");
-  const [iVowel, setIVowel] = useState("ㅣ");
+  const BANPO_FINAL_CONSONANT = "ㄴ";
+  const BANPO_SUFFIX = "포";
+
+  const [banpoInitial, setBanpoInitial] = useState("ㅂ");
+  const [banpoVowel, setBanpoVowel] = useState("ㅏ");
+  const [jaiVariant, setJaiVariant] = useState("자이");
 
   const baseConsonants = useMemo(
     () => ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ", "ㅂ", "ㅅ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"],
@@ -119,41 +126,15 @@ export default function MobileVariantPicker() {
   );
 
   const baseVowels = useMemo(() => JUNGSUNG.slice(), []);
-  const baseFinals = useMemo(() => JONGSUNG.slice(), []);
-
-  const banSyllable = useMemo(
-    () => composeHangulSyllable(banInitial, banVowel, banFinal),
-    [banFinal, banInitial, banVowel]
-  );
-
-  const poSyllable = useMemo(
-    () => composeHangulSyllable(poInitial, poVowel, NO_FINAL_CONSONANT),
-    [poInitial, poVowel]
-  );
-
-  const jaSyllable = useMemo(
-    () => composeHangulSyllable(jaInitial, jaVowel, NO_FINAL_CONSONANT),
-    [jaInitial, jaVowel]
-  );
-
-  const iSyllable = useMemo(
-    () => composeHangulSyllable(iInitial, iVowel, NO_FINAL_CONSONANT),
-    [iInitial, iVowel]
-  );
 
   const banpoWord = useMemo(
-    () => `${banSyllable}${poSyllable}`,
-    [banSyllable, poSyllable]
-  );
-
-  const jaiWord = useMemo(
-    () => `${jaSyllable}${iSyllable}`,
-    [jaSyllable, iSyllable]
-  );
-
-  const banpoJaiWord = useMemo(
-    () => `${banpoWord} ${jaiWord}`,
-    [banpoWord, jaiWord]
+    () =>
+      `${composeHangulSyllable(
+        banpoInitial,
+        banpoVowel,
+        BANPO_FINAL_CONSONANT
+      )}${BANPO_SUFFIX}`,
+    [banpoInitial, banpoVowel]
   );
 
   const banpoInitialOptions = useMemo(
@@ -161,232 +142,36 @@ export default function MobileVariantPicker() {
       baseConsonants.map((consonant) => {
         const syllable = composeHangulSyllable(
           consonant,
-          banVowel,
-          banFinal
+          banpoVowel,
+          BANPO_FINAL_CONSONANT
         );
-        return { value: consonant, label: `${syllable}${poSyllable}` };
+        return { value: consonant, label: `${syllable}${BANPO_SUFFIX}` };
       }),
-    [baseConsonants, banFinal, banVowel, poSyllable]
+    [BANPO_FINAL_CONSONANT, BANPO_SUFFIX, baseConsonants, banpoVowel]
   );
 
   const banpoVowelOptions = useMemo(
     () =>
       baseVowels.map((vowel) => {
         const syllable = composeHangulSyllable(
-          banInitial,
+          banpoInitial,
           vowel,
-          banFinal
+          BANPO_FINAL_CONSONANT
         );
-        return { value: vowel, label: `${syllable}${poSyllable}` };
+        return { value: vowel, label: `${syllable}${BANPO_SUFFIX}` };
       }),
-    [banFinal, banInitial, baseVowels, poSyllable]
+    [BANPO_FINAL_CONSONANT, BANPO_SUFFIX, banpoInitial, baseVowels]
   );
 
-  const banpoFinalOptions = useMemo(
+  const jaiOptions = useMemo(
     () =>
-      baseFinals.map((finalConsonant) => {
-        const syllable = composeHangulSyllable(
-          banInitial,
-          banVowel,
-          finalConsonant
-        );
-        return {
-          value: finalConsonant,
-          label: `${syllable}${poSyllable}`,
-        };
+      generateHangulOptions({
+        initialConsonants: baseConsonants,
+        vowel: "ㅏ",
+        finalConsonant: "",
+        suffix: "이",
       }),
-    [banInitial, banVowel, baseFinals, poSyllable]
-  );
-
-  const poInitialOptions = useMemo(
-    () =>
-      baseConsonants.map((consonant) => {
-        const syllable = composeHangulSyllable(
-          consonant,
-          poVowel,
-          NO_FINAL_CONSONANT
-        );
-        return { value: consonant, label: `${banSyllable}${syllable}` };
-      }),
-    [banSyllable, baseConsonants, poVowel]
-  );
-
-  const poVowelOptions = useMemo(
-    () =>
-      baseVowels.map((vowel) => {
-        const syllable = composeHangulSyllable(
-          poInitial,
-          vowel,
-          NO_FINAL_CONSONANT
-        );
-        return { value: vowel, label: `${banSyllable}${syllable}` };
-      }),
-    [banSyllable, baseVowels, poInitial]
-  );
-
-  const jaInitialOptions = useMemo(
-    () =>
-      baseConsonants.map((consonant) => {
-        const syllable = composeHangulSyllable(
-          consonant,
-          jaVowel,
-          NO_FINAL_CONSONANT
-        );
-        return { value: consonant, label: `${syllable}${iSyllable}` };
-      }),
-    [baseConsonants, iSyllable, jaVowel]
-  );
-
-  const jaVowelOptions = useMemo(
-    () =>
-      baseVowels.map((vowel) => {
-        const syllable = composeHangulSyllable(
-          jaInitial,
-          vowel,
-          NO_FINAL_CONSONANT
-        );
-        return { value: vowel, label: `${syllable}${iSyllable}` };
-      }),
-    [baseVowels, iSyllable, jaInitial]
-  );
-
-  const iInitialOptions = useMemo(
-    () =>
-      baseConsonants.map((consonant) => {
-        const syllable = composeHangulSyllable(
-          consonant,
-          iVowel,
-          NO_FINAL_CONSONANT
-        );
-        return { value: consonant, label: `${jaSyllable}${syllable}` };
-      }),
-    [baseConsonants, iVowel, jaSyllable]
-  );
-
-  const iVowelOptions = useMemo(
-    () =>
-      baseVowels.map((vowel) => {
-        const syllable = composeHangulSyllable(
-          iInitial,
-          vowel,
-          NO_FINAL_CONSONANT
-        );
-        return { value: vowel, label: `${jaSyllable}${syllable}` };
-      }),
-    [baseVowels, iInitial, jaSyllable]
-  );
-
-  const columnStyle = useMemo(
-    () => ({ flex: "1 1 0", minWidth: 0, maxWidth: 64 }),
-    []
-  );
-
-  const leftGroupStyle = useMemo(
-    () => ({
-      display: "flex",
-      gap: "0.25rem",
-      flex: "5 1 0",
-      minWidth: 0,
-      justifyContent: "center",
-    }),
-    []
-  );
-
-  const rightGroupStyle = useMemo(
-    () => ({
-      display: "flex",
-      gap: "0.25rem",
-      flex: "4 1 0",
-      minWidth: 0,
-      justifyContent: "center",
-    }),
-    []
-  );
-
-  const banpoColumns = useMemo(
-    () => [
-      {
-        key: "ban-initial",
-        options: banpoInitialOptions,
-        value: banInitial,
-        onChange: setBanInitial,
-      },
-      {
-        key: "ban-vowel",
-        options: banpoVowelOptions,
-        value: banVowel,
-        onChange: setBanVowel,
-      },
-      {
-        key: "ban-final",
-        options: banpoFinalOptions,
-        value: banFinal,
-        onChange: setBanFinal,
-      },
-      {
-        key: "po-initial",
-        options: poInitialOptions,
-        value: poInitial,
-        onChange: setPoInitial,
-      },
-      {
-        key: "po-vowel",
-        options: poVowelOptions,
-        value: poVowel,
-        onChange: setPoVowel,
-      },
-    ],
-    [
-      banFinal,
-      banInitial,
-      banVowel,
-      banpoFinalOptions,
-      banpoInitialOptions,
-      banpoVowelOptions,
-      poInitial,
-      poInitialOptions,
-      poVowel,
-      poVowelOptions,
-    ]
-  );
-
-  const jaiColumns = useMemo(
-    () => [
-      {
-        key: "ja-initial",
-        options: jaInitialOptions,
-        value: jaInitial,
-        onChange: setJaInitial,
-      },
-      {
-        key: "ja-vowel",
-        options: jaVowelOptions,
-        value: jaVowel,
-        onChange: setJaVowel,
-      },
-      {
-        key: "i-initial",
-        options: iInitialOptions,
-        value: iInitial,
-        onChange: setIInitial,
-      },
-      {
-        key: "i-vowel",
-        options: iVowelOptions,
-        value: iVowel,
-        onChange: setIVowel,
-      },
-    ],
-    [
-      iInitial,
-      iInitialOptions,
-      iVowel,
-      iVowelOptions,
-      jaInitial,
-      jaInitialOptions,
-      jaVowel,
-      jaVowelOptions,
-    ]
+    [baseConsonants]
   );
 
   return (
@@ -408,36 +193,38 @@ export default function MobileVariantPicker() {
           fontSize: "1.5rem",
         }}
       >
-        {banpoJaiWord}
+        {`${banpoWord} ${jaiVariant}`}
       </div>
       <WheelPickerWrapper>
-        <div style={leftGroupStyle}>
-          {banpoColumns.map(({ key, options, value, onChange }) => (
-            <div key={key} style={columnStyle}>
-              <WheelPicker
-                options={options}
-                value={value}
-                onValueChange={onChange}
-                infinite
-                visibleCount={20}
-                optionItemHeight={36}
-              />
-            </div>
-          ))}
+        <div style={{ flex: 1, minWidth: 80 }}>
+          <WheelPicker
+            options={banpoInitialOptions}
+            value={banpoInitial}
+            onValueChange={setBanpoInitial}
+            infinite
+            visibleCount={20}
+            optionItemHeight={36}
+          />
         </div>
-        <div style={rightGroupStyle}>
-          {jaiColumns.map(({ key, options, value, onChange }) => (
-            <div key={key} style={columnStyle}>
-              <WheelPicker
-                options={options}
-                value={value}
-                onValueChange={onChange}
-                infinite
-                visibleCount={20}
-                optionItemHeight={36}
-              />
-            </div>
-          ))}
+        <div style={{ flex: 1, minWidth: 80 }}>
+          <WheelPicker
+            options={banpoVowelOptions}
+            value={banpoVowel}
+            onValueChange={setBanpoVowel}
+            infinite
+            visibleCount={20}
+            optionItemHeight={36}
+          />
+        </div>
+        <div style={{ flex: 1, minWidth: 80 }}>
+          <WheelPicker
+            options={jaiOptions}
+            value={jaiVariant}
+            onValueChange={setJaiVariant}
+            infinite
+            visibleCount={20}
+            optionItemHeight={36}
+          />
         </div>
       </WheelPickerWrapper>
     </div>
