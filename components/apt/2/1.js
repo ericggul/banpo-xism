@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import { useControls } from 'leva';
 import * as THREE from 'three';
 
 const GROUND_LEVEL = -2.1;
@@ -118,34 +119,76 @@ function MinimalTower({ config, palette, position }) {
 }
 
 function ApartmentComplex() {
-  const palette = {
-    unit: '#d7d9d5',
-    band: '#fff',
-  };
+  const {
+    moduleWidth,
+    moduleHeight,
+    moduleDepth,
+    unitsPerRow,
+    unitColor,
+    bandColor,
+  } = useControls('Tower', {
+    moduleWidth: {
+      value: 7,
+      min: 4,
+      max: 14,
+      step: 0.1,
+    },
+    moduleHeight: {
+      value: 1.05,
+      min: 0.6,
+      max: 2.2,
+      step: 0.05,
+    },
+    moduleDepth: {
+      value: 2,
+      min: 1,
+      max: 6,
+      step: 0.1,
+    },
+    unitsPerRow: {
+      value: 4,
+      min: 2,
+      max: 10,
+      step: 1,
+    },
+    unitColor: {
+      label: 'Unit Color',
+      value: '#d7d9d5',
+    },
+    bandColor: {
+      label: 'Band Color',
+      value: '#ffffff',
+    },
+  });
 
-  const baseConfig = {
-    floors: 25,
-    unitsPerRow: 4,
-    moduleWidth: 7,
-    moduleHeight: 1.05,
-    moduleDepth: 2,
-    spacingX: 7 + 0.22,
-    spacingY: 1.05 + 0.18,
-    unitInset:2.0 * 0.18,
-  };
+  const palette = useMemo(
+    () => ({
+      unit: unitColor,
+      band: bandColor,
+    }),
+    [unitColor, bandColor],
+  );
+
+  const baseConfig = useMemo(
+    () => ({
+      floors: 25,
+      unitsPerRow,
+      moduleWidth,
+      moduleHeight,
+      moduleDepth,
+      spacingX: moduleWidth + 0.22,
+      spacingY: moduleHeight + 0.18,
+      unitInset: 2.0 * 0.18,
+    }),
+    [moduleWidth, moduleHeight, moduleDepth, unitsPerRow],
+  );
+
+  const rows = 10;
+  const cols = 5;
 
   const metrics = useMemo(
     () => getTowerMetrics(baseConfig),
-    [
-      baseConfig.floors,
-      baseConfig.unitsPerRow,
-      baseConfig.moduleWidth,
-      baseConfig.moduleHeight,
-      baseConfig.moduleDepth,
-      baseConfig.spacingX,
-      baseConfig.spacingY,
-      baseConfig.unitInset,
-    ],
+    [baseConfig],
   );
   const towerWidth = metrics.towerWidth;
   const towerDepth = metrics.towerDepth;
@@ -153,8 +196,7 @@ function ApartmentComplex() {
   const towerSpacingX = towerWidth + 4;
   const towerSpacingZ = towerDepth + 15;
 
-  const rows = 10;
-  const cols = 5;
+
 
   const towerPlacements = useMemo(() => {
     const placements = [];
@@ -171,7 +213,7 @@ function ApartmentComplex() {
       }
     }
     return placements;
-  }, [rows, cols, towerSpacingX, towerSpacingZ]);
+  }, [rows, cols, towerSpacingX, towerSpacingZ, baseConfig]);
 
   const complexWidth = cols * towerSpacingX + 48;
   const complexDepth = rows * towerSpacingZ + 48;
