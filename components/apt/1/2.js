@@ -7,8 +7,6 @@ import { useControls } from 'leva';
 import * as THREE from 'three';
 
 const GROUND_LEVEL = -2.1;
-const WINDOW_RECESS_EXTRA = 0.015;
-const WINDOW_POLYGON_OFFSET = { factor: -1, units: -2 };
 
 function useInstancedLayout(ref, transforms) {
   useEffect(() => {
@@ -47,7 +45,7 @@ function useInstancedLayout(ref, transforms) {
 
     mesh.frustumCulled = false;
     mesh.instanceMatrix.needsUpdate = true;
-  }, [transforms]);
+  }, [transforms, ref]);
 }
 
 function getTowerMetrics({ floors, unitsPerRow, moduleWidth, moduleHeight, moduleDepth, spacingX, spacingY, unitInset }) {
@@ -61,7 +59,7 @@ function MinimalTower({ config, palette, position }) {
   const { floors, unitsPerRow, moduleWidth, moduleHeight, moduleDepth, spacingX, spacingY, unitInset } = config;
   const { towerWidth, towerHeight, towerDepth } = useMemo(
     () => getTowerMetrics(config),
-    [floors, unitsPerRow, moduleWidth, moduleHeight, moduleDepth, spacingX, spacingY, unitInset],
+    [config],
   );
 
   const towerBaseY = GROUND_LEVEL;
@@ -69,11 +67,10 @@ function MinimalTower({ config, palette, position }) {
 
   const unitRef = useRef();
   const bandRef = useRef();
-  const windowRef = useRef();
 
   const unitTransforms = useMemo(() => {
     const transforms = [];
-    const zFront = towerDepth / 2 - moduleDepth / 2 - unitInset;
+    const zFront = towerDepth / 2 - moduleDepth / 2;
     const zBack = -zFront;
     for (let floor = 0; floor < floors; floor += 1) {
       const y = towerBaseY + floor * spacingY + moduleHeight / 2;
@@ -84,12 +81,12 @@ function MinimalTower({ config, palette, position }) {
       }
     }
     return transforms;
-  }, [floors, moduleHeight, spacingY, unitsPerRow, towerWidth, spacingX, towerDepth, moduleDepth, unitInset, towerBaseY]);
+  }, [floors, moduleHeight, spacingY, unitsPerRow, towerWidth, spacingX, towerDepth, moduleDepth, towerBaseY]);
 
   const bandTransforms = useMemo(() => {
     const transforms = [];
     const bandWidth = moduleWidth * 0.3;
-    const bandDepth = towerDepth;
+    const bandDepth = moduleDepth + Math.min(moduleDepth * 0.4, unitInset * 1.6);
     for (let column = 0; column < unitsPerRow; column += 1) {
       const x = -towerWidth / 2 + column * spacingX;
       transforms.push({
@@ -98,50 +95,222 @@ function MinimalTower({ config, palette, position }) {
       });
     }
     return transforms;
-  }, [unitsPerRow, moduleWidth, towerDepth, towerCenterY, towerHeight, towerWidth, spacingX]);
+  }, [unitsPerRow, moduleWidth, towerCenterY, towerHeight, towerWidth, spacingX, moduleDepth, unitInset]);
 
-  const windowTransforms = useMemo(() => {
-    const transforms = [];
-    const windowWidth = moduleWidth * 0.68;
-    const windowHeight = moduleHeight * 0.65;
-    const windowDepth = Math.min(0.18, moduleDepth * 0.22);
-    const recessedOffset =
-      moduleDepth / 2 - windowDepth / 2 - Math.min(0.06, moduleDepth * 0.12) - WINDOW_RECESS_EXTRA;
-    const zFront = towerDepth / 2 - moduleDepth / 2 - unitInset + recessedOffset;
-    const zBack = -zFront;
+  const {
+    frontGlass,
+    frontFrames,
+    frontMullions,
+    balconySlabs,
+    balconyRails,
+    balconyPosts,
+    backGlass,
+    backFrames,
+    backLouvers,
+  } = useMemo(() => {
+    const result = {
+      frontGlass: [],
+      frontFrames: [],
+      frontMullions: [],
+      balconySlabs: [],
+      balconyRails: [],
+      balconyPosts: [],
+      backGlass: [],
+      backFrames: [],
+      backLouvers: [],
+    };
+
+    const frontWindowWidth = moduleWidth * 0.78;
+    const frontWindowHeight = moduleHeight * 0.64;
+    const backWindowWidth = moduleWidth * 0.52;
+    const backWindowHeight = moduleHeight * 0.46;
+
+    const frontSillOffset = moduleHeight * 0.18;
+    const backSillOffset = moduleHeight * 0.34;
+
+    const windowRecess = Math.min(0.12, moduleDepth * 0.2);
+    const frameThickness = Math.max(0.08, moduleWidth * 0.02);
+    const frameDepth = Math.min(0.18, moduleDepth * 0.24);
+    const mullionThickness = Math.max(0.05, frameThickness * 0.6);
+    const mullionDepth = frameDepth * 0.72;
+    const transomThickness = Math.max(0.045, frameThickness * 0.65);
+
+    const balconySlabDepth = Math.min(0.58, unitInset + 0.34);
+    const balconySlabThickness = 0.12;
+    const railThickness = 0.045;
+    const railDepth = railThickness * 1.2;
+    const postThickness = railThickness * 1.2;
+    const postDepth = railDepth;
+
+    const frontPlaneZ = towerDepth / 2 - windowRecess;
+    const backPlaneZ = -frontPlaneZ;
+    const frontFrameZ = frontPlaneZ + frameDepth / 2;
+    const backFrameZ = backPlaneZ - frameDepth / 2;
+    const frontGlassZ = frontPlaneZ - 0.015;
+    const backGlassZ = backPlaneZ + 0.015;
+    const balconyFrontZ = frontPlaneZ + balconySlabDepth / 2;
 
     for (let floor = 0; floor < floors; floor += 1) {
-      const y = towerBaseY + floor * spacingY + moduleHeight / 2 + moduleHeight * 0.04;
+      const floorBaseY = towerBaseY + floor * spacingY;
+      const frontSillY = floorBaseY + frontSillOffset;
+      const backSillY = floorBaseY + backSillOffset;
+
+      const frontCenterY = frontSillY + frontWindowHeight / 2;
+      const backCenterY = backSillY + backWindowHeight / 2;
+
+      const frontTopY = frontCenterY + frontWindowHeight / 2;
+      const frontBottomY = frontCenterY - frontWindowHeight / 2;
+      const backTopY = backCenterY + backWindowHeight / 2;
+      const backBottomY = backCenterY - backWindowHeight / 2;
+
       for (let column = 0; column < unitsPerRow; column += 1) {
         const x = -towerWidth / 2 + column * spacingX;
-        transforms.push({
-          position: [x, y, zFront],
-          scale: [windowWidth, windowHeight, windowDepth],
+
+        result.frontGlass.push({
+          position: [x, frontCenterY, frontGlassZ],
+          rotation: [0, 0, 0],
+          scale: [frontWindowWidth, frontWindowHeight, 1],
         });
-        transforms.push({
-          position: [x, y, zBack],
-          scale: [windowWidth, windowHeight, windowDepth],
+
+        result.frontFrames.push({
+          position: [x, frontTopY + frameThickness / 2, frontFrameZ],
+          scale: [frontWindowWidth + frameThickness * 2, frameThickness, frameDepth],
+        });
+        result.frontFrames.push({
+          position: [x, frontBottomY - frameThickness / 2, frontFrameZ],
+          scale: [frontWindowWidth + frameThickness * 2, frameThickness, frameDepth],
+        });
+
+        const frontLeftX = x - frontWindowWidth / 2 - frameThickness / 2;
+        const frontRightX = x + frontWindowWidth / 2 + frameThickness / 2;
+        result.frontFrames.push({
+          position: [frontLeftX, frontCenterY, frontFrameZ],
+          scale: [frameThickness, frontWindowHeight + frameThickness * 2, frameDepth],
+        });
+        result.frontFrames.push({
+          position: [frontRightX, frontCenterY, frontFrameZ],
+          scale: [frameThickness, frontWindowHeight + frameThickness * 2, frameDepth],
+        });
+
+        const mullionOffset = frontWindowWidth * 0.22;
+        const mullionZ = frontPlaneZ + mullionDepth / 2;
+        result.frontMullions.push({
+          position: [x - mullionOffset, frontCenterY, mullionZ],
+          scale: [mullionThickness, frontWindowHeight + frameThickness * 0.4, mullionDepth],
+        });
+        result.frontMullions.push({
+          position: [x + mullionOffset, frontCenterY, mullionZ],
+          scale: [mullionThickness, frontWindowHeight + frameThickness * 0.4, mullionDepth],
+        });
+        result.frontMullions.push({
+          position: [x, frontTopY - frontWindowHeight * 0.25, mullionZ],
+          scale: [frontWindowWidth + frameThickness * 1.2, transomThickness, mullionDepth],
+        });
+
+        const slabY = frontBottomY - frameThickness - balconySlabThickness / 2 - 0.06;
+        result.balconySlabs.push({
+          position: [x, slabY, balconyFrontZ],
+          scale: [frontWindowWidth * 1.05, balconySlabThickness, balconySlabDepth],
+        });
+
+        const railZ = frontPlaneZ + balconySlabDepth - railDepth / 2;
+        const railLevels = [0.24, 0.46, 0.68];
+        railLevels.forEach((level) => {
+          const railY = frontBottomY + frameThickness + frontWindowHeight * level;
+          result.balconyRails.push({
+            position: [x, railY, railZ],
+            scale: [frontWindowWidth * 0.98, railThickness, railDepth],
+          });
+        });
+
+        const postZ = frontPlaneZ + balconySlabDepth - postDepth / 2;
+        const postHeight = frontWindowHeight * 0.78;
+        const postY = frontBottomY + frameThickness + postHeight / 2;
+        const postOffsetX = frontWindowWidth / 2 - frameThickness * 0.5;
+        result.balconyPosts.push({
+          position: [x - postOffsetX, postY, postZ],
+          scale: [postThickness, postHeight, postDepth],
+        });
+        result.balconyPosts.push({
+          position: [x + postOffsetX, postY, postZ],
+          scale: [postThickness, postHeight, postDepth],
+        });
+
+        result.backGlass.push({
+          position: [x, backCenterY, backGlassZ],
+          rotation: [0, Math.PI, 0],
+          scale: [backWindowWidth, backWindowHeight, 1],
+        });
+
+        result.backFrames.push({
+          position: [x, backTopY + frameThickness / 2, backFrameZ],
+          scale: [backWindowWidth + frameThickness * 1.8, frameThickness, frameDepth],
+        });
+        result.backFrames.push({
+          position: [x, backBottomY - frameThickness / 2, backFrameZ],
+          scale: [backWindowWidth + frameThickness * 1.8, frameThickness, frameDepth],
+        });
+
+        const backLeftX = x - backWindowWidth / 2 - frameThickness / 2;
+        const backRightX = x + backWindowWidth / 2 + frameThickness / 2;
+        result.backFrames.push({
+          position: [backLeftX, backCenterY, backFrameZ],
+          scale: [frameThickness, backWindowHeight + frameThickness * 2, frameDepth],
+        });
+        result.backFrames.push({
+          position: [backRightX, backCenterY, backFrameZ],
+          scale: [frameThickness, backWindowHeight + frameThickness * 2, frameDepth],
+        });
+
+        const louverDepth = mullionDepth * 0.66;
+        const louverZ = backPlaneZ - louverDepth / 2;
+        const louverLevels = [0.2, 0.4, 0.6, 0.8];
+        louverLevels.forEach((level) => {
+          const louverY = backBottomY + backWindowHeight * level;
+          result.backLouvers.push({
+            position: [x, louverY, louverZ],
+            scale: [backWindowWidth * 0.95, transomThickness * 0.78, louverDepth],
+          });
         });
       }
     }
-    return transforms;
+
+    return result;
   }, [
     floors,
+    unitsPerRow,
     moduleWidth,
     moduleHeight,
     moduleDepth,
+    spacingX,
     spacingY,
-    unitsPerRow,
     towerBaseY,
     towerDepth,
     towerWidth,
-    spacingX,
     unitInset,
   ]);
 
+  const frontGlassRef = useRef();
+  const frontFrameRef = useRef();
+  const frontMullionRef = useRef();
+  const balconySlabRef = useRef();
+  const balconyRailRef = useRef();
+  const balconyPostRef = useRef();
+  const backGlassRef = useRef();
+  const backFrameRef = useRef();
+  const backLouverRef = useRef();
+
   useInstancedLayout(unitRef, unitTransforms);
   useInstancedLayout(bandRef, bandTransforms);
-  useInstancedLayout(windowRef, windowTransforms);
+  useInstancedLayout(frontGlassRef, frontGlass);
+  useInstancedLayout(frontFrameRef, frontFrames);
+  useInstancedLayout(frontMullionRef, frontMullions);
+  useInstancedLayout(balconySlabRef, balconySlabs);
+  useInstancedLayout(balconyRailRef, balconyRails);
+  useInstancedLayout(balconyPostRef, balconyPosts);
+  useInstancedLayout(backGlassRef, backGlass);
+  useInstancedLayout(backFrameRef, backFrames);
+  useInstancedLayout(backLouverRef, backLouvers);
 
   return (
     <group position={position}>
@@ -157,19 +326,84 @@ function MinimalTower({ config, palette, position }) {
           <meshStandardMaterial color={palette.band} roughness={0.6} metalness={0.1} />
         </instancedMesh>
       )}
-      {windowTransforms.length > 0 && (
-        <instancedMesh ref={windowRef} args={[null, null, windowTransforms.length]} receiveShadow>
+      {frontGlass.length > 0 && (
+        <instancedMesh ref={frontGlassRef} args={[null, null, frontGlass.length]}>
+          <planeGeometry args={[1, 1]} />
+          <meshPhysicalMaterial
+            color={palette.windowGlass ?? palette.window ?? '#a9bfd7'}
+            roughness={0.08}
+            metalness={0.1}
+            transmission={0.72}
+            thickness={0.4}
+            transparent
+            opacity={0.95}
+            ior={1.45}
+          />
+        </instancedMesh>
+      )}
+      {frontFrames.length > 0 && (
+        <instancedMesh ref={frontFrameRef} args={[null, null, frontFrames.length]}>
           <boxGeometry args={[1, 1, 1]} />
           <meshStandardMaterial
-            color={palette.window}
-            roughness={0.18}
-            metalness={0.55}
-            transparent
-            opacity={0.92}
-            polygonOffset
-            polygonOffsetFactor={WINDOW_POLYGON_OFFSET.factor}
-            polygonOffsetUnits={WINDOW_POLYGON_OFFSET.units}
+            color={palette.windowFrame ?? '#f2f1ee'}
+            roughness={0.42}
+            metalness={0.12}
           />
+        </instancedMesh>
+      )}
+      {frontMullions.length > 0 && (
+        <instancedMesh ref={frontMullionRef} args={[null, null, frontMullions.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial
+            color={palette.windowFrame ?? '#f2f1ee'}
+            roughness={0.35}
+            metalness={0.18}
+          />
+        </instancedMesh>
+      )}
+      {balconySlabs.length > 0 && (
+        <instancedMesh ref={balconySlabRef} args={[null, null, balconySlabs.length]} castShadow receiveShadow>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color={palette.balcony ?? '#cfd2cc'} roughness={0.6} metalness={0.08} />
+        </instancedMesh>
+      )}
+      {balconyRails.length > 0 && (
+        <instancedMesh ref={balconyRailRef} args={[null, null, balconyRails.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color={palette.railing ?? '#858b95'} roughness={0.25} metalness={0.65} />
+        </instancedMesh>
+      )}
+      {balconyPosts.length > 0 && (
+        <instancedMesh ref={balconyPostRef} args={[null, null, balconyPosts.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color={palette.railing ?? '#858b95'} roughness={0.28} metalness={0.62} />
+        </instancedMesh>
+      )}
+      {backGlass.length > 0 && (
+        <instancedMesh ref={backGlassRef} args={[null, null, backGlass.length]}>
+          <planeGeometry args={[1, 1]} />
+          <meshPhysicalMaterial
+            color={palette.serviceGlass ?? palette.windowGlass ?? palette.window ?? '#b7c8d8'}
+            roughness={0.15}
+            metalness={0.08}
+            transmission={0.58}
+            thickness={0.32}
+            transparent
+            opacity={0.9}
+            ior={1.4}
+          />
+        </instancedMesh>
+      )}
+      {backFrames.length > 0 && (
+        <instancedMesh ref={backFrameRef} args={[null, null, backFrames.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color={palette.windowFrame ?? '#f2f1ee'} roughness={0.48} metalness={0.14} />
+        </instancedMesh>
+      )}
+      {backLouvers.length > 0 && (
+        <instancedMesh ref={backLouverRef} args={[null, null, backLouvers.length]}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color={palette.railing ?? '#858b95'} roughness={0.35} metalness={0.32} />
         </instancedMesh>
       )}
     </group>
@@ -229,6 +463,11 @@ function ApartmentComplex() {
       unit: unitColor,
       band: bandColor,
       window: windowColor,
+      windowGlass: windowColor,
+      windowFrame: '#f2f1ee',
+      balcony: '#cfd2cc',
+      railing: '#858b95',
+      serviceGlass: '#b7c8d8',
     }),
     [unitColor, bandColor, windowColor],
   );

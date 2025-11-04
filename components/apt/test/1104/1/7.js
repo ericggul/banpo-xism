@@ -727,17 +727,6 @@ function ApartmentComplex() {
         <meshStandardMaterial color="#ebede9" />
       </mesh>
 
-      {/* green belts */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, GROUND_LEVEL - 0.015, -towerSpacingZ * 0.2]} receiveShadow>
-        <planeGeometry args={[complexWidth * 0.85, complexDepth * 0.42]} />
-        <meshStandardMaterial color="#cfe3cf" />
-      </mesh>
-
-      {/* podium strip along one side */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[complexWidth * 0.28, GROUND_LEVEL - 0.005, complexDepth * 0.22]} receiveShadow>
-        <boxGeometry args={[complexWidth * 0.42, towerDepth * 0.55, 1.1]} />
-        <meshStandardMaterial color="#d0d3d6" />
-      </mesh>
 
       {towerPlacements.map(({ position, config, rotationY }, index) => (
         <MinimalTower key={`tower-${index}`} config={config} palette={palette} position={position} rotationY={rotationY} />
