@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useControls } from 'leva';
 import * as THREE from 'three';
@@ -430,13 +430,12 @@ function useDongFootprintGeometry(height, margin = 0, hullPoints) {
 }
 
 function MinimalTower({ config, palette, position, layout }) {
-  const { floors, floorHeight, edgeColor, unitAngleFloorDelta = 0 } = config;
+  const { floors, floorHeight, edgeColor } = config;
   const { unitLayout, connectorLayout, hullPoints, dongRotationRad } = layout;
 
   const slabThickness = Math.min(0.45, floorHeight * SLAB_THICKNESS_SCALE);
   const storyHeight = Math.max(0.5, floorHeight - STORY_GAP);
   const unitHeight = Math.max(0.3, storyHeight - UNIT_GEOMETRY_EPS);
-  const unitAngleStepRad = THREE.MathUtils.degToRad(unitAngleFloorDelta);
 
   const unitGeometry = useFloorGeometry(unitHeight);
   const slabGeometry = useDongFootprintGeometry(slabThickness, SLAB_FOOTPRINT_MARGIN, hullPoints);
@@ -495,42 +494,30 @@ function MinimalTower({ config, palette, position, layout }) {
 
   const unitTransforms = useMemo(() => {
     const transforms = [];
-    floorCenters.forEach((y, level) => {
-      const angleOffset = unitAngleStepRad * level;
+    floorCenters.forEach((y) => {
       unitLayout.forEach((unit) => {
-        const rotatedPos = rotatePoint(unit.position[0], unit.position[2], angleOffset);
         transforms.push({
-          position: [rotatedPos.x, y + unit.position[1], rotatedPos.z],
-          rotation: [
-            unit.rotation[0],
-            unit.rotation[1] + angleOffset,
-            unit.rotation[2],
-          ],
+          position: [unit.position[0], y + unit.position[1], unit.position[2]],
+          rotation: unit.rotation,
         });
       });
     });
     return transforms;
-  }, [floorCenters, unitAngleStepRad, unitLayout]);
+  }, [floorCenters, unitLayout]);
 
   const connectorTransforms = useMemo(() => {
     const transforms = [];
-    floorCenters.forEach((y, level) => {
-      const angleOffset = unitAngleStepRad * level;
+    floorCenters.forEach((y) => {
       connectorLayout.forEach((connector) => {
-        const rotatedPos = rotatePoint(connector.position[0], connector.position[2], angleOffset);
         transforms.push({
-          position: [rotatedPos.x, y + connector.position[1], rotatedPos.z],
-          rotation: [
-            connector.rotation[0],
-            connector.rotation[1] + angleOffset,
-            connector.rotation[2],
-          ],
+          position: [connector.position[0], y + connector.position[1], connector.position[2]],
+          rotation: connector.rotation,
           scale: connector.scale,
         });
       });
     });
     return transforms;
-  }, [connectorLayout, floorCenters, unitAngleStepRad]);
+  }, [connectorLayout, floorCenters]);
 
   const coreRef = useRef();
   const unitRef = useRef();
@@ -591,15 +578,7 @@ function MinimalTower({ config, palette, position, layout }) {
 }
 
 function ApartmentComplex({ layoutConfig, palette, edgeColor, dongLayout }) {
-  const {
-    floors,
-    floorHeight,
-    rows,
-    columns,
-    towerGapX,
-    towerGapZ,
-    unitAngleFloorDelta = 0,
-  } = layoutConfig;
+  const { floors, floorHeight, rows, columns, towerGapX, towerGapZ } = layoutConfig;
   const { rotatedBounds, boundingRadius } = dongLayout;
 
   const baseWidth = Math.max(1, rotatedBounds.width, boundingRadius * 2);
@@ -639,7 +618,7 @@ function ApartmentComplex({ layoutConfig, palette, edgeColor, dongLayout }) {
       {towerPlacements.map(({ position }, index) => (
         <MinimalTower
           key={`tower-${index}`}
-          config={{ floors, floorHeight, edgeColor, unitAngleFloorDelta }}
+          config={{ floors, floorHeight, edgeColor }}
           palette={palette}
           position={position}
           layout={dongLayout}
@@ -647,6 +626,109 @@ function ApartmentComplex({ layoutConfig, palette, edgeColor, dongLayout }) {
       ))}
     </group>
   );
+}
+
+function MultiViewComposer({ sceneExtents, cameraSettings }) {
+  const planCamera = useMemo(() => {
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 5000);
+    camera.up.set(0, 0, -1);
+    return camera;
+  }, []);
+
+  const elevationCamera = useMemo(
+    () => new THREE.PerspectiveCamera(46, 1, 0.5, 5000),
+    [],
+  );
+
+  const cachedClearColor = useMemo(() => new THREE.Color(), []);
+
+  useEffect(() => {
+    if (!sceneExtents) return;
+    const { spanWidth, spanDepth, height } = sceneExtents;
+    const [targetX, targetY, targetZ] = cameraSettings.target;
+
+    const planHeight = height + Math.max(spanWidth, spanDepth) * 1.2 + 40;
+    planCamera.position.set(targetX, planHeight, targetZ);
+    planCamera.lookAt(targetX, targetY, targetZ);
+    planCamera.near = 0.5;
+    planCamera.far = planHeight + height * 4 + Math.max(spanWidth, spanDepth) * 4 + 200;
+    planCamera.updateProjectionMatrix();
+
+    const elevationDistance = spanDepth * 1.45 + 40;
+    elevationCamera.position.set(targetX, Math.max(height * 0.48, targetY + 2), elevationDistance);
+    elevationCamera.lookAt(targetX, targetY, targetZ);
+    elevationCamera.near = 0.5;
+    elevationCamera.far = elevationDistance + height * 4 + spanDepth * 4 + 200;
+    elevationCamera.updateProjectionMatrix();
+  }, [
+    cameraSettings.target,
+    planCamera,
+    elevationCamera,
+    sceneExtents,
+  ]);
+
+  useFrame(({ gl, scene, size }) => {
+    const { width, height } = size;
+    if (width === 0 || height === 0) return;
+
+    const margin = Math.max(Math.round(Math.min(width, height) * 0.025), 12);
+    const availableWidth = width - margin * 2;
+    const availableHeight = height - margin * 3;
+    if (availableWidth <= 24 || availableHeight <= 24) return;
+
+    const plannedWidth = Math.min(Math.round(width * 0.28), 320);
+    const pipWidth = Math.max(Math.min(plannedWidth, availableWidth), Math.min(availableWidth, 200));
+    const plannedHeight = Math.min(Math.round(height * 0.28), 240);
+    const pipHeight = Math.max(
+      Math.min(plannedHeight, availableHeight / 2),
+      Math.min(availableHeight / 2, 140),
+    );
+
+    if (pipWidth <= 0 || pipHeight <= 0 || Number.isNaN(pipWidth) || Number.isNaN(pipHeight)) return;
+
+    const viewportX = width - margin - pipWidth;
+    const topViewportY = height - margin - pipHeight;
+    const bottomViewportY = margin;
+
+    const originalAutoClear = gl.autoClear;
+    const previousAlpha = gl.getClearAlpha();
+    gl.getClearColor(cachedClearColor);
+    gl.autoClear = false;
+
+    const viewports = [
+      { camera: planCamera, x: viewportX, y: topViewportY },
+      { camera: elevationCamera, x: viewportX, y: bottomViewportY },
+    ];
+
+    viewports.forEach(({ camera, x, y }) => {
+      const aspect = pipWidth / pipHeight;
+      if (camera.aspect !== aspect) {
+        camera.aspect = aspect;
+        camera.updateProjectionMatrix();
+      }
+
+      gl.setViewport(x, y, pipWidth, pipHeight);
+      gl.setScissor(x, y, pipWidth, pipHeight);
+      gl.setScissorTest(true);
+
+      if (scene.background && scene.background.isColor) {
+        gl.setClearColor(scene.background);
+        gl.clear(true, true, true);
+      } else {
+        gl.setClearColor(cachedClearColor);
+        gl.clear(true, true, true);
+      }
+      gl.clearDepth();
+      gl.render(scene, camera);
+    });
+
+    gl.setScissorTest(false);
+    gl.setViewport(0, 0, width, height);
+    gl.setClearColor(cachedClearColor, previousAlpha);
+    gl.autoClear = originalAutoClear;
+  }, 1);
+
+  return null;
 }
 
 export default function AptComplex13() {
@@ -672,13 +754,6 @@ export default function AptComplex13() {
     unitAngleX: { value: 0, min: -45, max: 45, step: 1, label: 'Angle X (°)' },
     unitAngleY: { value: 0, min: -90, max: 90, step: 1, label: 'Angle Y (°)' },
     unitAngleZ: { value: 0, min: -45, max: 45, step: 1, label: 'Angle Z (°)' },
-    unitAngleFloorDelta: {
-      value: 0,
-      min: -10,
-      max: 10,
-      step: 0.1,
-      label: 'Angle Δ per Floor (°)',
-    },
   });
 
   const dongRotationControls = useControls('Dong Rotation', {
@@ -737,7 +812,6 @@ export default function AptComplex13() {
       columns: controls.columns,
       towerGapX: controls.towerGapX,
       towerGapZ: controls.towerGapZ,
-      unitAngleFloorDelta: controls.unitAngleFloorDelta,
     }),
     [
       controls.floors,
@@ -746,7 +820,6 @@ export default function AptComplex13() {
       controls.columns,
       controls.towerGapX,
       controls.towerGapZ,
-      controls.unitAngleFloorDelta,
     ],
   );
 
@@ -782,7 +855,7 @@ export default function AptComplex13() {
     ],
   );
 
-  const cameraSettings = useMemo(() => {
+  const sceneExtents = useMemo(() => {
     const baseWidth = Math.max(1, dongLayout.rotatedBounds.width, dongLayout.boundingRadius * 2);
     const baseDepth = Math.max(1, dongLayout.rotatedBounds.depth, dongLayout.boundingRadius * 2);
     const towerSpacingX = baseWidth + controls.towerGapX;
@@ -790,7 +863,27 @@ export default function AptComplex13() {
     const spanWidth = baseWidth + Math.max(0, controls.columns - 1) * towerSpacingX;
     const spanDepth = baseDepth + Math.max(0, controls.rows - 1) * towerSpacingZ;
     const height = controls.floorHeight * controls.floors;
+    return {
+      baseWidth,
+      baseDepth,
+      towerSpacingX,
+      towerSpacingZ,
+      spanWidth,
+      spanDepth,
+      height,
+    };
+  }, [
+    controls.columns,
+    controls.rows,
+    controls.towerGapX,
+    controls.towerGapZ,
+    controls.floorHeight,
+    controls.floors,
+    dongLayout,
+  ]);
 
+  const cameraSettings = useMemo(() => {
+    const { spanWidth, spanDepth, height } = sceneExtents;
     const radiusX = spanWidth * 0.75 + 14;
     const radiusZ = spanDepth * 0.95 + 16;
     const lookHeight = height * 0.58;
@@ -803,13 +896,7 @@ export default function AptComplex13() {
       maxDistance: Math.max(span * 4.8, 80),
     };
   }, [
-    controls.columns,
-    controls.rows,
-    controls.towerGapX,
-    controls.towerGapZ,
-    controls.floorHeight,
-    controls.floors,
-    dongLayout,
+    sceneExtents,
   ]);
 
   return (
@@ -846,6 +933,8 @@ export default function AptComplex13() {
           edgeColor={controls.edgeColor}
           dongLayout={dongLayout}
         />
+
+        <MultiViewComposer sceneExtents={sceneExtents} cameraSettings={cameraSettings} />
 
         <OrbitControls
           target={cameraSettings.target}
